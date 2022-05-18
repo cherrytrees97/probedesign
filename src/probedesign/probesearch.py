@@ -1,4 +1,5 @@
 from Bio import SeqIO, Seq, AlignIO
+from Bio.Align import AlignInfo
 import multiprocessing
 import pathlib
 import argparse
@@ -131,25 +132,33 @@ class alignment:
     def get_dumb_consensus(self):
         pass
     def get_consensus(self): 
-        def _get_sequence_regions(alignment): 
-            """
-            Function to determine the start and end of sequences in an alignment
-            alignment - Bio.Align.MultipleSeqAlignment object
-            """
-            list_regions = []
-            for sequence in alignment: 
-                ungap_sequence = sequence.seq.ungap()
-                start_base = ungap_sequence[0]
-                end_base = ungap_sequence[1]
-                start_index = sequence.seq.find(start_base)
-                end_index = sequence.seq.find(end_base)
-                
-            
-            
-            pass
-        
-        
         pass
+    def _get_sequence_regions(self): 
+        """
+        Function to determine the start and end of sequences in an alignment
+        alignment - Bio.Align.MultipleSeqAlignment object
+        """
+        sequence_regions = dict()
+        for sequence in self.alignment: 
+            ungap_sequence = sequence.seq.ungap()
+            start_base = ungap_sequence[0]
+            end_base = ungap_sequence[-1]
+            start_index = sequence.seq.find(start_base)
+            end_index = sequence.seq.rfind(end_base)
+            sequence_regions[sequence.id] = (start_index, end_index)
+        return sequence_regions
+    def _get_sequence_position_data(self):
+        """
+        Function to store information in a dataframe
+        """
+        dict_series = dict()
+        for sequence in self.alignment: 
+            series = pandas.Series(list(sequence.seq), index=range(len(sequence.seq)), name=sequence.id)
+            dict_series[sequence.id] = series
+        dataframe = pandas.DataFrame(dict_series)
+        return dataframe
+    
+
 
 
 class probe:
