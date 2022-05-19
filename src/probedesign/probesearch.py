@@ -7,159 +7,67 @@ import tempfile
 import io
 import subprocess
 import pandas
+import numpy as np
 import csv
 import time
-
-class alignment_old:
-    def __init__(self, alignment_path): 
-        self.alignment = AlignIO.read(alignment_path, 'fasta')
-    def get_consensus(self): 
-        """
-        Determine the consensus sequence of an alignment, and create position matrix
-        Definition of consensus: most common base represented at that position. 
-        Consensus sequence is a string object.
-        """
-        def get_seq_position_info(alignment): 
-            """
-            Get information for each position of the alignment.
-            Output is in list format, with each index corresponding to the 0-based position
-            of the alignment. 
-            Each index contains dictionary with following information: 
-            pos - position number
-            accessions - the accessions represented at that position
-            bases - base calls in corresponding order of accessions
-            seqs_rep - number of accessions represented at that position
-            p_seq_rep - percentage of accessions represented at that position
-            """
-            def get_sequence_regions(alignment): 
-                """
-                Identify the regions that each accession spans on the alignment.
-                Algorithm: 
-                1) From beginning of sequence, keep going until position is not '-',
-                then record the position as the start of the region
-                2) From the end of the sequence, go in reverse until position is not '-',
-                then record the position as the end of the region
-                3) Return tuple --> (accession, start, end)
-                """
-                def get_sequence_region(accession): 
-                    #Variables
-                    f_start = False
-                    f_end = False
-                    start = 0
-                    end = 0
-                    #Data from SeqRecord object 
-                    sequence = accession.seq
-                    acc = (accession.id).split('.')[0]
-                    #From beginning of the sequence, keep going until position is not '-'
-                    i = 0
-                    while (f_start is False): 
-                        if sequence[i] != '-': 
-                            start = i
-                            f_start = True
-                        i = i + 1
-                    #From ending of the sequence, keep going until position is not '-'
-                    i = -1
-                    while (f_end is False): 
-                        if sequence[i] != '-':
-                            end = i%len(sequence) #Translate negative index to positive index
-                            f_end = True
-                        i = i - 1
-                    return ((acc, start, end))
-                sequence_regions = []
-                for accession in alignment: 
-                    sequence_regions.append(get_sequence_region(accession))
-                return sequence_regions
-            def get_contributing_seqs(position, list_seq_region):
-                """
-                Given a position and the list of sequence regions for each accession,
-                identify which accessions are represented
-                """
-                list_accession = []
-                list_indices = []
-                for sequence in list_seq_region:
-                    if (position >= sequence[1]) and (position <= sequence[2]): 
-                        list_accession.append(sequence[0])
-                        list_indices.append(list_seq_region.index(sequence))
-                return list_accession, list_indices
-            list_seq_position_info = []
-            #Get sequence regions
-            list_seq_regions = get_sequence_regions(alignment)
-            num_accessions = len(alignment)
-            for position in range(alignment.get_alignment_length()):
-                list_accessions, list_indices = get_contributing_seqs(position, list_seq_regions)
-                list_bases = []
-                #Append the basecalls of every contributing sequence at specified position
-                for index in list_indices: 
-                    list_bases.append(alignment[index].seq[position])
-                position_info = {
-                    'pos':position,
-                    'accessions':tuple(list_accessions),
-                    'bases':tuple(list_bases),
-                    'seqs_rep':len(list_accessions),
-                    'p_seq_rep':len(list_accessions)/num_accessions,
-                }
-                list_seq_position_info.append(position_info)
-            return list_seq_position_info
-        consensus_sequence = []
-        #Get seq_info
-        seq_info = get_seq_position_info(self.alignment)
-        for position in seq_info: 
-            #Ignore any ambiguous basecalls - accept A, T, C, G, and 'gap'
-            base_counts = {
-                'a':position['bases'].count('a')+position['bases'].count('A'),
-                't':position['bases'].count('t')+position['bases'].count('T'),
-                'c':position['bases'].count('c')+position['bases'].count('C'),
-                'g':position['bases'].count('g')+position['bases'].count('G'),
-                '-':position['bases'].count('-'),
-            }
-            max_basecalls = [key for key, count in base_counts.items() if count == max(base_counts.values())]
-            if len(max_basecalls) == 1: 
-                consensus_sequence.append(max_basecalls[0])
-            else: 
-                consensus_sequence.append('n')
-        return str(Seq.Seq(''.join(consensus_sequence)).ungap(gap='-'))
-    def get_accessions(self): 
-        list_id = []
-        for seq in self.alignment: 
-            list_id.append(seq.id.split('.')[0])
-        return list_id
 
 class alignment: 
     def __init__(self, alignment_path): 
         self.alignment = AlignIO.read(alignment_path, 'fasta')
+        self.seq_position_data = None
+        self.sequence_regions = dict()
+        self.consensus = None
     def __repr__(self): 
         return self.alignment
-    def get_dumb_consensus(self):
-        pass
-    def get_consensus(self): 
-        pass
+    def get_consensus(self, threshold=0.9): 
+        """
+        
+        """
+        consensus=[]
+        for base_position in self.seq_position_data.iterrows(): 
+            nucleotide_counts = base_position[1].value_counts(normalize=True)
+            if nucleotide_counts[0] >= threshold: 
+                consensus.append(nucleotide_counts.index[0])
+            else: 
+                consensus.append("n")
+        self.consensus = "".join(consensus).replace("-","")
     def _get_sequence_regions(self): 
         """
         Function to determine the start and end of sequences in an alignment
         alignment - Bio.Align.MultipleSeqAlignment object
+        sequence region - list of tuples(start_index, end_index)
+        0-based indices, half open
         """
-        sequence_regions = dict()
         for sequence in self.alignment: 
             ungap_sequence = sequence.seq.ungap()
             start_base = ungap_sequence[0]
             end_base = ungap_sequence[-1]
             start_index = sequence.seq.find(start_base)
             end_index = sequence.seq.rfind(end_base)
-            sequence_regions[sequence.id] = (start_index, end_index)
-        return sequence_regions
+            self.sequence_regions[sequence.id] = (start_index, end_index+1)
+        return self.sequence_regions
     def _get_sequence_position_data(self):
         """
         Function to store information in a dataframe
         """
         dict_series = dict()
         for sequence in self.alignment: 
+            #Create the series containing all of the data
             series = pandas.Series(list(sequence.seq), index=range(len(sequence.seq)), name=sequence.id)
+            #Using sequence_regions, convert all non-sequence gap characters to NaN
+            sequence_region = self.sequence_regions[sequence.id]
+            #Start of the alignment to first base of sequence
+            #Base past end of sequence to end of alignment
+            series.iloc[0:sequence_region[0]] = np.NaN
+            series.iloc[sequence_region[1]:len(sequence.seq)] = np.NaN
             dict_series[sequence.id] = series
-        dataframe = pandas.DataFrame(dict_series)
-        return dataframe
-    
-
-
+        self.seq_position_data = pandas.DataFrame(dict_series)
+        return self.seq_position_data
+    def get_accessions(self): 
+        list_id = []
+        for seq in self.alignment: 
+            list_id.append(seq.id.split('.')[0])
+        return list_id
 
 class probe:
     def __init__(self, root_pos, seq):
@@ -192,7 +100,6 @@ class probe:
                     target_match = target_match + 1
         #Calculate sensitivity and return
         self.sensitivity = target_match/len(target_accessions)
-        
     def calculate_specificity(self, blast_results, target_accessions, blastdb_len): 
         """
         Function calculates specificity of the oligo (binding to non-target sequences). 
@@ -215,7 +122,6 @@ class probe:
         #Calculate specificity
         #Total non-target = all_blast_sequences - target_accessions
         self.specificity = (blastdb_len - len(blast_match_accessions))/(blastdb_len - len(target_accessions))
-
     def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 
@@ -326,57 +232,7 @@ class nemaBlast:
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
         self.data = None
-    
-    def blast_all(self, probes):
-        def blast(seq, blastdb, blastdb_len): 
-            fasta = tempfile.NamedTemporaryFile(delete=True)
-            fasta.write(f">probe\n{str(seq)}".encode())
-            fasta.seek(0)
-            args = [
-                "blastn",
-                "-task",
-                "blastn-short",
-                "-db",
-                blastdb,
-                "-num_alignments",
-                str(blastdb_len),
-                "-outfmt",
-                "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
-                "-query",
-                fasta.name,
-            ]
-            #Capture output
-            result = subprocess.run(args, capture_output=True)
-            decoded = result.stdout.decode('utf-8')
-            #print(decoded)
-            output = io.StringIO(decoded)
-            #Output formatting into dataframe
-            headers=[
-                'qacc',
-                'sacc',
-                'ssciname',
-                'pident',
-                'qlen',
-                'length',
-                'mismatch', 
-                'gapopen', 
-                'qstart', 
-                'qend', 
-                'sstart', 
-                'send', 
-                'evalue', 
-                'bitscore',
-            ]
-            data = pandas.read_csv(output, sep=',', header=None, names=headers)
-            fasta.close()
-            return data       
-        blast_results = dict()
-        for probe in probes:
-            blast_results[probe.id] = blast(probe.seq, self.blastdb, self.blastdb_len)
-            print(f"{str(probes.index(probe))} out of {str(len(probes))} completed..")
-        return blast_results
-
-    def blast_all_proper(self, probes): 
+    def blast_all(self, probes): 
         #Generate the probe temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
         print('Probes in the temp file: ')
@@ -435,7 +291,6 @@ class nemaBlast:
         for probe_id in list_probe_ids: 
             blast_results[str(probe_id)]=self.data.loc[self.data['qacc']==probe_id]
         return blast_results
-
     def output(self, blast_results, path): 
         #Make path to store all of the blast results
         blast_folder_path = path.joinpath('probe_blast')
@@ -447,16 +302,7 @@ class nemaBlast:
             blast_results[blast_result_key].to_csv(blast_output_file)
             blast_output_file.close()
 
-def get_target_accessions(path): 
-    target_accessions = []
-    input_file = open(path, 'r')
-    for line in input_file: 
-        target_accessions.append(line.strip('\n'))
-    input_file.close()
-    return target_accessions
-
 def print_runtime(action) -> None:
-
     """ Print the time and some defined action. """
     print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
 
@@ -533,25 +379,26 @@ def parse_args():
         dest='blastdb_len',
         help='Length of blastdb'
     )
-    parser.add_argument(
-        '--target_accessions', 
-        metavar='target_accessions', 
-        action='store', 
-        type=pathlib.Path,
-        dest='target_accessions',
-        default='',
-        help = 'Path to target_accessions'
-    )
     args = parser.parse_args()
     if not args.output_path:
         args.output_path = args.target_alignment_path.parent
-    #Argument order: target sequence, target start coordinate, target end coordinate, minimum primer length, max primer length, check flag, blastdb, target accession path
     #Note that coordinates are converted to 0-based half-open coordinates
-    return (args.target_alignment_path, args.output_path, args.target_start-1, args.target_end, args.min_primer_len, args.max_primer_len, args.sens_spec_flag, args.blastdb, args.blastdb_len, args.target_accessions)
+    return (
+        args.target_alignment_path, 
+        args.output_path, 
+        args.target_start-1, 
+        args.target_end, 
+        args.min_primer_len, 
+        args.max_primer_len, 
+        args.sens_spec_flag, 
+        args.blastdb, 
+        args.blastdb_len, 
+        args.target_accessions
+    )
 
 def main():
     #Arguments
-    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path = parse_args()
+    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len = parse_args()
     #Process the alignment
     target_alignment = alignment(target_alignment_path)
     target_consensus = target_alignment.get_consensus()
@@ -562,8 +409,6 @@ def main():
     print("Generating probes...")
     pb_gen.get_probes()
     print("Probes finished!")
-    for probe in pb_gen.probes: 
-        print(probe.id)
     #Do the specificity check
     if check_flag is False: 
         #Read target accessions
