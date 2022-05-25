@@ -608,6 +608,7 @@ class blast:
             "-mt_mode",
             str(1)
         ]
+        print(args)
         result = subprocess.run(args, capture_output=True)
         decoded = result.stdout.decode('utf-8')
         output = io.StringIO(decoded)
@@ -647,7 +648,7 @@ class blast:
             print(len(item))
             print(item[0].id)
         #Run the BLAST
-        pool = multiprocessing.Pool(NUM_POOL)
+        pool = multiprocessing.Pool(8)
         results = pool.map(self.blast, job_list)
         #Combine and return
         blast_results = dict()
