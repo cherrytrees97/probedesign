@@ -522,6 +522,7 @@ class blast:
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
         self.data = None
+        self.NUM_POOL = 8
     def blast_all(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
@@ -581,14 +582,14 @@ class blast:
         for oligo_id in list_oligo_ids: 
             blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]
         return blast_results
-    def blaster(self, oligos, num_pool): 
+    def blast(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
         for oligo in oligos:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 16/num_pool
+        cpu_count = 16/self.NUM_POOL
         #Run the BLAST job
         args = [
             "blastn",
@@ -643,8 +644,7 @@ class blast:
         job_list = job_allocator(oligos, NUM_POOL)
         #Run the BLAST
         pool = multiprocessing.Pool(NUM_POOL)
-        blast_method = partial(self.blaster, num_pool=NUM_POOL)
-        results = pool.map(blast_method, job_list)
+        results = pool.map(blast, job_list)
         #Combine and return
         blast_results = dict()
         for job in results: 
