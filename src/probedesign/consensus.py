@@ -7,6 +7,8 @@ class alignment:
         self.alignment = AlignIO.read(alignment_path, 'fasta')
         self.seq_position_data = None
         self.sequence_regions = dict()
+        self._get_sequence_regions()
+        self._get_sequence_position_data()
         self.consensus = None
     def __repr__(self): 
         return self.alignment
