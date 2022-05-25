@@ -11,8 +11,10 @@ def print_runtime(action) -> None:
     print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
 
 def output_timers(timers): 
-    for time in timers: 
-        print(f"{time}: {timers[time]}")
+    print(f"Total runtime: {timers['end'] - timers['start']}")
+    print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
+    print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
+    print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
 
 def parse_args(): 
     parser = argparse.ArgumentParser(description='probesearch.py - identify viable probes in an alignment for given target sequences')
@@ -150,6 +152,7 @@ def main():
     else: 
         pb_gen.output(output_path)
     print_runtime("End")
+    timers['end'] = time.monotonic()
     output_timers(timers)
 if __name__ == '__main__': 
     main()
