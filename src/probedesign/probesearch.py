@@ -10,6 +10,10 @@ def print_runtime(action) -> None:
     """ Print the time and some defined action. """
     print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
 
+def output_timers(timers): 
+    for time in timers: 
+        print(f"{time}: {timers[time]}")
+
 def parse_args(): 
     parser = argparse.ArgumentParser(description='probesearch.py - identify viable probes in an alignment for given target sequences')
     parser.add_argument(
@@ -100,6 +104,10 @@ def parse_args():
     )
 
 def main():
+    #Timer
+    timers ={
+        "start":time.monotonic(),
+    }
     #Arguments
     target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len = parse_args()
     #Process the alignment
@@ -111,30 +119,37 @@ def main():
     print_runtime("Start")
     pb_gen = probeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
     print("Generating probes...")
+    timers['pb_gen-start'] = time.monotonic()
     pb_gen.get_probes()
+    timers['pb_gen-end'] = time.monotonic()
     print("Probes finished!")
     #Do the specificity check
     if check_flag is False: 
         #Read target accessions
         #target_accessions = get_target_accessions(target_accession_path)
         #Generate BLAST results
+        timers['blast-start'] = time.monotonic()
         pb_blast = blast(blastdb, blastdb_len)
         blast_results = pb_blast.blast_all(pb_gen.probes)
+        timers['blast-end'] = time.monotonic()
         print("Blast complete.")
         #Output BLAST results
         print("Outputting BLAST results...")
         pb_blast.output(blast_results, output_path)
         print("Output complete...")
         print("Calculating sensitivity and specificity...")
+        timers['calc-start'] = time.monotonic()
         for probe in pb_gen.probes: 
             probe.calculate_sensitivity(blast_results[probe.id], target_accessions)
             probe.calculate_specificity(blast_results[probe.id], target_accessions, blastdb_len)
             probe.calculate_score()
+        timers['calc-end'] = time.monotonic()
         print("Calculation complete.")
         #Output probe list
         pb_gen.output(output_path)
     else: 
         pb_gen.output(output_path)
     print_runtime("End")
+    output_timers(timers)
 if __name__ == '__main__': 
     main()

@@ -529,7 +529,8 @@ class blast:
             print(oligo.id)
             print(oligo.seq)
         fasta.seek(0)
-        cpu_count = multiprocessing.cpu_count() - 2
+        #cpu_count = multiprocessing.cpu_count() - 2
+        cpu_count = 4
         print(f"NUMBER OF THREADS: {str(cpu_count)}")
         #Run the BLAST job
         args = [
