@@ -7,6 +7,7 @@ import io
 import pandas as pd
 import primer3
 from math import floor
+from functools import partial
 
 class oligo: 
     def __init__(self, root_pos, seq):
@@ -580,14 +581,14 @@ class blast:
         for oligo_id in list_oligo_ids: 
             blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]
         return blast_results
-    def blast(self, oligos, NUM_POOL): 
+    def blast(self, oligos, num_pool): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
         for oligo in oligos:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 16/NUM_POOL
+        cpu_count = 16/num_pool
         #Run the BLAST job
         args = [
             "blastn",
@@ -642,7 +643,8 @@ class blast:
         job_list = job_allocator(oligos, NUM_POOL)
         #Run the BLAST
         pool = multiprocessing.Pool(NUM_POOL)
-        results = pool.map(self.blast, job_list)
+        blast_method = partial(self.blast, num_pool=NUM_POOL)
+        results = pool.map(blast_method, job_list)
         #Combine and return
         blast_results = dict()
         for job in results: 
