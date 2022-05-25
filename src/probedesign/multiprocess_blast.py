@@ -78,3 +78,6 @@ def multiblast(oligos):
     pool = multiprocessing.pool(4)
     result = pool.map(blast_all, oligos)
     print(len(result))
+
+if __name__ == "__main__":
+    multiblast(oligos)
