@@ -646,7 +646,7 @@ class blast:
         job_list = job_allocator(oligos)
         #Run the BLAST
         pool = multiprocessing.Pool(4)
-        results = pool.map(self.blast_all, job_list)
+        results = pool.map(self.blast, job_list)
         #Combine and return
         blast_results = dict()
         for job in results: 
