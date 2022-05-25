@@ -522,7 +522,7 @@ class blast:
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
         self.data = None
-        self.NUM_POOL = 8
+        self.NUM_POOL = 16
     def blast_all(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
@@ -608,7 +608,6 @@ class blast:
             "-mt_mode",
             str(1)
         ]
-        #print(args)
         result = subprocess.run(args, capture_output=True)
         decoded = result.stdout.decode('utf-8')
         output = io.StringIO(decoded)
@@ -643,10 +642,6 @@ class blast:
         NUM_POOL = 8
         #Allocate the jobs
         job_list = job_allocator(oligos, NUM_POOL)
-        print(len(job_list))
-        for item in job_list: 
-            print(len(item))
-            print(item[0].id)
         #Run the BLAST
         pool = multiprocessing.Pool(8)
         results = pool.map(self.blast, job_list)

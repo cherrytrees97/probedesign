@@ -89,7 +89,11 @@ def blast_all(oligos):
 
 def multiblast(oligos): 
     #print(oligos)
+    #This means that four subprocesses will be allowed at a time
     pool = multiprocessing.Pool(4)
+    #Note that oligos should be split into four lists
+    #That way, there are four subprocesses that are spawn4ed
+    #With each subprocess working on 1/4th of the list of oligos
     result = pool.map(blast_all, oligos)
     print(result)
     for item in result: 
