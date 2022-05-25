@@ -6,6 +6,7 @@ import subprocess
 import io
 import pandas as pd
 import primer3
+from math import floor
 
 class oligo: 
     def __init__(self, root_pos, seq):
@@ -578,6 +579,80 @@ class blast:
         blast_results = dict()
         for oligo_id in list_oligo_ids: 
             blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]
+        return blast_results
+    def blast(self, oligos): 
+        #Generate the oligo temporary file
+        fasta = tempfile.NamedTemporaryFile(delete=True)
+        print('Oligos in the temp file: ')
+        for oligo in oligos:
+            fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
+            print(oligo.id)
+            print(oligo.seq)
+        fasta.seek(0)
+        #cpu_count = multiprocessing.cpu_count() - 2
+        cpu_count = 4
+        print(f"NUMBER OF THREADS: {str(cpu_count)}")
+        #Run the BLAST job
+        args = [
+            "blastn",
+            "-task",
+            "blastn-short",
+            "-db",
+            self.blastdb,
+            "-num_alignments",
+            str(self.blastdb_len),
+            "-outfmt",
+            "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
+            "-query",
+            fasta.name,
+            "-num_threads",
+            str(cpu_count),
+            "-mt_mode",
+            str(1)
+        ]
+        result = subprocess.run(args, capture_output=True)
+        decoded = result.stdout.decode('utf-8')
+        output = io.StringIO(decoded)
+        #Output formatting into dataframe
+        headers=[
+            'qacc',
+            'sacc',
+            'ssciname',
+            'pident',
+            'qlen',
+            'length',
+            'mismatch', 
+            'gapopen', 
+            'qstart', 
+            'qend', 
+            'sstart', 
+            'send', 
+            'evalue', 
+            'bitscore',
+        ]
+        fasta.close()
+        return(pd.read_csv(output, sep=',', header=None, names=headers))
+    def multi_blast(self, oligos): 
+        def job_allocator(oligos):
+            NUM_GROUPS = 4 
+            list_size = floor(len(oligos)/NUM_GROUPS)
+            remainder = len(oligos)%4
+            job_list = []
+            for group in range(NUM_GROUPS-1): 
+                job_list.append(oligos[0+(list_size*group):list_size+(list_size*group)])
+            job_list.append(oligos[(list_size*(NUM_GROUPS-1)):(list_size*NUM_GROUPS+remainder)])
+            return job_list
+        #Allocate the jobs
+        job_list = job_allocator(oligos)
+        #Run the BLAST
+        pool = multiprocessing.Pool(4)
+        results = pool.map(self.blast_all, job_list)
+        #Combine and return
+        blast_results = dict()
+        for job in results: 
+            list_oligo_ids = set(job['qacc'])
+            for oligo_id in list_oligo_ids: 
+                blast_results[str(oligo_id)]=job.loc[job['qacc']==oligo_id]
         return blast_results
     def output(self, blast_results, path): 
         #Make path to store all of the blast results

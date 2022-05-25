@@ -135,7 +135,8 @@ def main():
         #Generate BLAST results
         timers['blast-start'] = time.monotonic()
         pb_blast = blast(blastdb, blastdb_len)
-        blast_results = pb_blast.blast_all(pb_gen.probes)
+        #blast_results = pb_blast.blast_all(pb_gen.probes)
+        blast_results = pb_blast.multi_blast(pb_gen.probes)
         timers['blast-end'] = time.monotonic()
         print("Blast complete.")
         #Output BLAST results
