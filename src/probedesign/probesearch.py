@@ -97,7 +97,6 @@ def parse_args():
         args.sens_spec_flag, 
         args.blastdb, 
         args.blastdb_len, 
-        args.target_accessions
     )
 
 def main():
