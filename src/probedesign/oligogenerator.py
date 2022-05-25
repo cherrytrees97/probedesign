@@ -583,15 +583,11 @@ class blast:
     def blast(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
-        print('Oligos in the temp file: ')
         for oligo in oligos:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
-            print(oligo.id)
-            print(oligo.seq)
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 4
-        print(f"NUMBER OF THREADS: {str(cpu_count)}")
+        cpu_count = 2
         #Run the BLAST job
         args = [
             "blastn",
@@ -642,10 +638,11 @@ class blast:
                 job_list.append(oligos[0+(list_size*group):list_size+(list_size*group)])
             job_list.append(oligos[(list_size*(NUM_GROUPS-1)):(list_size*NUM_GROUPS+remainder)])
             return job_list
+        NUM_POOL = 8
         #Allocate the jobs
         job_list = job_allocator(oligos)
         #Run the BLAST
-        pool = multiprocessing.Pool(4)
+        pool = multiprocessing.Pool(NUM_POOL)
         results = pool.map(self.blast, job_list)
         #Combine and return
         blast_results = dict()
