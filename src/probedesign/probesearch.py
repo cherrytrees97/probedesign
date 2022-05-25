@@ -106,6 +106,9 @@ def main():
     target_alignment = alignment(target_alignment_path)
     target_consensus = target_alignment.get_consensus()
     target_accessions = target_alignment.get_accessions()
+
+    print(target_consensus)
+    
     #Generate Probes
     print_runtime("Start")
     pb_gen = probeGenerator(target_consensus, target_start, target_end, min_primer_len, max_primer_len)
