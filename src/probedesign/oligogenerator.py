@@ -580,14 +580,14 @@ class blast:
         for oligo_id in list_oligo_ids: 
             blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]
         return blast_results
-    def blast(self, oligos): 
+    def blast(self, oligos, NUM_POOL): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
         for oligo in oligos:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 2
+        cpu_count = 16/NUM_POOL
         #Run the BLAST job
         args = [
             "blastn",
@@ -629,10 +629,9 @@ class blast:
         fasta.close()
         return(pd.read_csv(output, sep=',', header=None, names=headers))
     def multi_blast(self, oligos): 
-        def job_allocator(oligos):
-            NUM_GROUPS = 4 
+        def job_allocator(oligos, NUM_GROUPS):
             list_size = floor(len(oligos)/NUM_GROUPS)
-            remainder = len(oligos)%4
+            remainder = len(oligos)%NUM_GROUPS
             job_list = []
             for group in range(NUM_GROUPS-1): 
                 job_list.append(oligos[0+(list_size*group):list_size+(list_size*group)])
@@ -640,7 +639,7 @@ class blast:
             return job_list
         NUM_POOL = 8
         #Allocate the jobs
-        job_list = job_allocator(oligos)
+        job_list = job_allocator(oligos, NUM_POOL)
         #Run the BLAST
         pool = multiprocessing.Pool(NUM_POOL)
         results = pool.map(self.blast, job_list)
