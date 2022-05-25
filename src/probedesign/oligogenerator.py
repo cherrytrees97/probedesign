@@ -8,11 +8,11 @@ import pandas as pd
 import primer3
 
 class oligo: 
-    def __init__(self, root_pos, seq, tm):
+    def __init__(self, root_pos, seq):
         self.seq = seq
         self.root_pos = root_pos
         self.len = len(self.seq)
-        self.tm = tm
+        #self.tm = tm
         self.id =  f"{str(self.root_pos)}-{str(self.len)}"
         self.sensitivity = 0
         self.specificity = 0
@@ -62,7 +62,7 @@ class oligo:
         #Total non-target = all_blast_sequences - target_accessions
         self.specificity = (blastdb_len - len(blast_match_accessions))/(blastdb_len - len(target_accessions))
     def calculate_score(self): 
-        self.score = self.sensitivity + self.score
+        self.score = self.sensitivity + self.specificity
 
 class primerpair: 
     def __init__(self, fw_primer, rev_primer): 
@@ -199,7 +199,7 @@ class probeGenerator:
                     probe.score,
                 )
             )
-        output_path = path.with_name('probe_candidates.csv')
+        output_path = path.joinpath('probe_candidates.csv')
         csv_file = open(output_path, 'w', newline='')
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(
@@ -515,7 +515,7 @@ class primerGenerator:
         csv_writer.writerows(primer_data)
         csv_file.close()
 
-class nemaBlast: 
+class blast: 
     def __init__(self, blastdb, blastdb_len):
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
@@ -573,7 +573,7 @@ class nemaBlast:
         fasta.close()
         #Split the data
         list_oligo_ids = set(self.data['qacc'])
-        print(f"qacc set:\n{list_oligo_ids}")
+        #print(f"qacc set:\n{list_oligo_ids}")
         blast_results = dict()
         for oligo_id in list_oligo_ids: 
             blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]

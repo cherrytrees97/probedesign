@@ -1,4 +1,4 @@
-from oligogenerator import probeGenerator, oligo, nemaBlast
+from oligogenerator import probeGenerator, oligo, blast
 from consensus import alignment
 import pathlib
 import argparse
@@ -38,8 +38,8 @@ def parse_args():
     )
     parser.add_argument(
         '--target_end',
-        metavar='target_end', 
-        dest='target_end', 
+        metavar='target_end',
+        dest='target_end',
         default=None,
         action='store',
         type=int,
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '--min_primer_len',
         action='store',
-        type=int, 
+        type=int,
         default=17,
         dest='min_primer_len',
         help='Minimum primer length (default=17)'
@@ -56,7 +56,7 @@ def parse_args():
     parser.add_argument(
         '--max_primer_len',
         action='store',
-        type=int, 
+        type=int,
         default=22,
         dest='max_primer_len',
         help='Maximum primer length (default=22)'
@@ -104,14 +104,12 @@ def main():
     target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len = parse_args()
     #Process the alignment
     target_alignment = alignment(target_alignment_path)
-    target_consensus = target_alignment.get_consensus()
+    target_alignment.get_consensus()
     target_accessions = target_alignment.get_accessions()
 
-    print(target_consensus)
-    
     #Generate Probes
     print_runtime("Start")
-    pb_gen = probeGenerator(target_consensus, target_start, target_end, min_primer_len, max_primer_len)
+    pb_gen = probeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
     print("Generating probes...")
     pb_gen.get_probes()
     print("Probes finished!")
@@ -120,14 +118,19 @@ def main():
         #Read target accessions
         #target_accessions = get_target_accessions(target_accession_path)
         #Generate BLAST results
-        pb_blast = nemaBlast(blastdb, blastdb_len)
-        blast_results = pb_blast.blast_all_proper(pb_gen.probes)
+        pb_blast = blast(blastdb, blastdb_len)
+        blast_results = pb_blast.blast_all(pb_gen.probes)
+        print("Blast complete.")
         #Output BLAST results
+        print("Outputting BLAST results...")
         pb_blast.output(blast_results, output_path)
+        print("Output complete...")
+        print("Calculating sensitivity and specificity...")
         for probe in pb_gen.probes: 
             probe.calculate_sensitivity(blast_results[probe.id], target_accessions)
             probe.calculate_specificity(blast_results[probe.id], target_accessions, blastdb_len)
             probe.calculate_score()
+        print("Calculation complete.")
         #Output probe list
         pb_gen.output(output_path)
     else: 
