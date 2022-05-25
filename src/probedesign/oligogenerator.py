@@ -589,7 +589,7 @@ class blast:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 16/self.NUM_POOL
+        cpu_count = floor(16/self.NUM_POOL)
         #Run the BLAST job
         args = [
             "blastn",
@@ -608,7 +608,7 @@ class blast:
             "-mt_mode",
             str(1)
         ]
-        print(args)
+        #print(args)
         result = subprocess.run(args, capture_output=True)
         decoded = result.stdout.decode('utf-8')
         output = io.StringIO(decoded)
