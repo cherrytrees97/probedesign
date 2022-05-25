@@ -125,6 +125,9 @@ def main():
     pb_gen.get_probes()
     timers['pb_gen-end'] = time.monotonic()
     print("Probes finished!")
+
+    print(f"Total number of probes generated: {len(pb_gen.probes)}")
+
     #Do the specificity check
     if check_flag is False: 
         #Read target accessions
