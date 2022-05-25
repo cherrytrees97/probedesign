@@ -642,6 +642,7 @@ class blast:
         NUM_POOL = 8
         #Allocate the jobs
         job_list = job_allocator(oligos, NUM_POOL)
+        print(job_list)
         #Run the BLAST
         pool = multiprocessing.Pool(NUM_POOL)
         results = pool.map(self.blast, job_list)
