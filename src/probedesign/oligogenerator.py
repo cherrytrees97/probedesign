@@ -590,7 +590,7 @@ class blast:
                 job_list.append(oligos[0+(list_size*group):list_size+(list_size*group)])
             job_list.append(oligos[(list_size*(NUM_GROUPS-1)):(list_size*NUM_GROUPS+remainder)])
             return job_list
-        def blast(oligos, num_pool): 
+        def blaster(oligos, num_pool): 
             #Generate the oligo temporary file
             fasta = tempfile.NamedTemporaryFile(delete=True)
             for oligo in oligos:
@@ -643,7 +643,7 @@ class blast:
         job_list = job_allocator(oligos, NUM_POOL)
         #Run the BLAST
         pool = multiprocessing.Pool(NUM_POOL)
-        blast_method = partial(blast, num_pool=NUM_POOL)
+        blast_method = partial(blaster, num_pool=NUM_POOL)
         results = pool.map(blast_method, job_list)
         #Combine and return
         blast_results = dict()
