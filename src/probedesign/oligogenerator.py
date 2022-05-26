@@ -433,7 +433,7 @@ class primerGenerator:
             rev_start = self.pb_end + last_root_pos - i
             for rev_len in range(self.min_length, self.min_length + 1 + i):
                 rev_end = rev_start + rev_end
-                rev_primer_seq = str(self.template[rev_start:rev_end].reverse_complement())
+                rev_primer_seq = str(Seq.Seq(self.template[rev_start:rev_end]).reverse_complement())
                 if check_primer(rev_primer_seq) is True: 
                     self.rev_primers.append(
                         oligo(
