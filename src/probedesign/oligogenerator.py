@@ -11,11 +11,11 @@ from math import floor
 from functools import partial
 
 class oligo: 
-    def __init__(self, root_pos, seq):
+    def __init__(self, root_pos, seq, tm):
         self.seq = seq
         self.root_pos = root_pos
         self.len = len(self.seq)
-        #self.tm = tm
+        self.tm = tm
         self.id =  f"{str(self.root_pos)}-{str(self.len)}"
         self.sensitivity = 0
         self.specificity = 0
@@ -188,7 +188,7 @@ class probeGenerator:
                 probe_seq = self.template[i:i+probe_len]
                 if check_probe(probe_seq) is True: 
                     #Note that the coordinates are converted back to 1-based
-                    self.probes.append(oligo(self.start+i+1, probe_seq))
+                    self.probes.append(oligo(self.start+i+1, probe_seq, 0))
     def output(self, path): 
         probe_data = []
         for probe in self.probes: 
