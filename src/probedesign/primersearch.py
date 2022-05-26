@@ -2,6 +2,7 @@ from consensus import alignment
 from oligogenerator import primerGenerator, blast
 import pathlib
 import argparse
+import time
 
 def print_runtime(action) -> None:
     """ Print the time and some defined action. """
@@ -9,9 +10,11 @@ def print_runtime(action) -> None:
 
 def output_timers(timers): 
     print(f"Total runtime: {timers['end'] - timers['start']}")
-    print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
+    print(f"Primer generation runtime: {timers['p_gen-end'] - timers['p_gen-start']}")
+    print(f"Primer pairing runtime: {timers['primer-pair-end'] - timers['primer-pair-start']}")
     print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
-    print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
+    print(f"Individual primer calculation runtime: {timers['ind-calc-end'] - timers['ind-calc-start']}")
+    print(f"Primer pair calculation runtime: {timers['pp-calc-end'] - timers['pp-calc-start']}")
 
 def parse_args(): 
     parser = argparse.ArgumentParser(description='Search for primers')
@@ -105,10 +108,17 @@ def main():
     #Get arguments
     target_alignment_path, output_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, blastdb_len = parse_args()
     #Process the alignment
+    #timer
+    timers={
+        "start":time.monotonic(),
+    }
+    print_runtime("Start")
     target_alignment = alignment(target_alignment_path)
     target_alignment.get_consensus()
     target_accessions = target_alignment.get_accessions()
 
+    print("Generating primers...")
+    
     primer_gen = primerGenerator(
         target_alignment.consensus, 
         pb_start, pb_len, 
@@ -118,14 +128,22 @@ def main():
     )
 
     #Generate primer pairs
+    timers['p_gen-start'] = time.monotonic()
     primer_gen.find_fw_primers()
     primer_gen.find_rev_primers()
+    timers['p_gen-end'] = time.monotonic()
+    print("Primers finished!")
+    print(f"Total number of forward primers: {len(primer_gen.fw_primers)}")
+    print(f"Total number of reverse primers: {len(primer_gen.rev_primers)}")
 
     #Generate BLAST results
     if skip_check_flag is False: 
         primer_blast = blast(blastdb, blastdb_len)
+        timers['blast-start'] = time.monotonic()
         fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers)
         rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers)
+        timers['blast-end'] = time.monotonic()
+        timers['ind-calc-start'] = time.monotonic()
         for fw_primer in primer_gen.fw_primers: 
             fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_accessions)
             fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions, blastdb_len)
@@ -134,11 +152,15 @@ def main():
             rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
             rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, blastdb_len)
             rev_primer.calculate_score()
+        timers['ind-calc-end'] = time.monotonic()
         primer_blast.output(fw_blast_results, output_path, 'fw')
         primer_blast.output(rev_blast_results, output_path, 'rev')
     
     #Generate primer pairs
+    timers['primers-pair-start'] = time.monotonic()
     primer_gen.find_primer_pairs()
+    timers['primers-pair-end'] = time.monotonic()
+    timers['pp-calc-start'] = time.monotonic()
     if skip_check_flag is False:
         #Generate primer pair data
         for primer_pair in primer_gen.primer_pairs: 
@@ -146,7 +168,8 @@ def main():
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
             primer_pair.calculate_sensitivity(fw_blast, rev_blast, target_accessions)
             primer_pair.calculate_specificity(fw_blast, rev_blast, target_accessions, blastdb_len)
-            primer_pair.calculate_score() 
+            primer_pair.calculate_score()
+    timers['pp-calc-end'] = time.monotonic() 
 
     #Output
     primer_gen.output(output_path)
