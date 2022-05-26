@@ -77,17 +77,10 @@ def parse_args():
     parser.add_argument(
         '--blastdb',
         action='store',
-        type=str,
+        type=pathlib.Path,
         dest='blastdb',
         default='',
         help='Name of blastdb'
-    )
-    parser.add_argument(
-        '--blastdb_len',
-        action='store',
-        type=int,
-        dest='blastdb_len',
-        help='Length of blastdb'
     )
     args = parser.parse_args()
     if not args.output_path:
@@ -102,7 +95,6 @@ def parse_args():
         args.max_primer_len, 
         args.sens_spec_flag, 
         args.blastdb, 
-        args.blastdb_len, 
     )
 
 def main():
@@ -111,7 +103,7 @@ def main():
         "start":time.monotonic(),
     }
     #Arguments
-    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len = parse_args()
+    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, = parse_args()
     #Process the alignment
     target_alignment = alignment(target_alignment_path)
     target_alignment.get_consensus()
@@ -134,7 +126,7 @@ def main():
         #target_accessions = get_target_accessions(target_accession_path)
         #Generate BLAST results
         timers['blast-start'] = time.monotonic()
-        pb_blast = blast(blastdb, blastdb_len)
+        pb_blast = blast(blastdb)
         #blast_results = pb_blast.blast_all(pb_gen.probes)
         blast_results = pb_blast.multi_blast(pb_gen.probes)
         timers['blast-end'] = time.monotonic()
@@ -147,7 +139,7 @@ def main():
         timers['calc-start'] = time.monotonic()
         for probe in pb_gen.probes: 
             probe.calculate_sensitivity(blast_results[probe.id], target_accessions)
-            probe.calculate_specificity(blast_results[probe.id], target_accessions, blastdb_len)
+            probe.calculate_specificity(blast_results[probe.id], target_accessions, pb_blast.blastdb_len)
             probe.calculate_score()
         timers['calc-end'] = time.monotonic()
         print("Calculation complete.")

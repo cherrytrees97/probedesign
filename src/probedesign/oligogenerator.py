@@ -523,10 +523,14 @@ class primerGenerator:
         csv_file.close()
 
 class blast: 
-    def __init__(self, blastdb, blastdb_len):
+    def __init__(self, blastdb):
         self.blastdb = blastdb
-        self.blastdb_len = blastdb_len
+        self.blastdb_len = self._get_blastdb_len(blastdb)
         self.NUM_POOL = 16
+    def _get_blastdb_len(self): 
+        blastdb_file = open(self.blastdb)
+        data = blastdb_file.read()
+        return data.count('>')
     def blast(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)
@@ -534,24 +538,20 @@ class blast:
             fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
         fasta.seek(0)
         #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = floor(16/self.NUM_POOL)
+        #cpu_count = floor(16/self.NUM_POOL)
         #Run the BLAST job
         args = [
             "blastn",
             "-task",
             "blastn-short",
             "-db",
-            self.blastdb,
+            str(self.blastdb),
             "-num_alignments",
             str(self.blastdb_len),
             "-outfmt",
             "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
             "-query",
             fasta.name,
-            "-num_threads",
-            str(cpu_count),
-            "-mt_mode",
-            str(1)
         ]
         result = subprocess.run(args, capture_output=True)
         decoded = result.stdout.decode('utf-8')
@@ -584,7 +584,7 @@ class blast:
                 job_list.append(oligos[0+(list_size*group):list_size+(list_size*group)])
             job_list.append(oligos[(list_size*(NUM_GROUPS-1)):(list_size*NUM_GROUPS+remainder)])
             return job_list
-        NUM_POOL = 8
+        NUM_POOL = 16
         #Allocate the jobs
         job_list = job_allocator(oligos, NUM_POOL)
         #Run the BLAST
