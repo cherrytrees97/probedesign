@@ -1,4 +1,4 @@
-from tmcalc import calcProbeTm
+from tmcalc import CalcProbeTm
 from Bio import SeqIO, Seq
 import csv
 import tempfile
@@ -9,7 +9,7 @@ import pandas as pd
 from primer3 import calcTm
 from math import floor
 
-class oligo: 
+class Oligo: 
     def __init__(self, root_pos, seq, tm):
         self.seq = seq
         self.root_pos = root_pos
@@ -30,6 +30,10 @@ class oligo:
             FN = target accessions that were not amplified
             TP + FN = total number of target accessions
         """
+        #Determine the range the probe spans
+        pb_start = self.root_pos - 1
+
+
         #Take only accessions where there was a perfect match --> full query coverage, 100% identity
         perfect_match_results = blast_results.loc[(blast_results['qlen']==blast_results['length'])&(blast_results['pident']==100.0)]
         #Retrieve only the accessions list
@@ -66,7 +70,7 @@ class oligo:
     def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 
-class primerpair: 
+class PrimerPair: 
     def __init__(self, fw_primer, rev_primer): 
         self.fw_primer = fw_primer
         self.rev_primer = rev_primer
@@ -115,7 +119,7 @@ class primerpair:
     def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 
-class probeGenerator: 
+class ProbeGenerator: 
     def __init__(
         self, 
         template, 
@@ -187,8 +191,8 @@ class probeGenerator:
                 probe_seq = self.template[i:i+probe_len]
                 if check_probe(probe_seq) is True: 
                     #Note that the coordinates are converted back to 1-based
-                    probe_tm = calcProbeTm(probe_seq).Tm
-                    self.probes.append(oligo(self.start+i+1, probe_seq, probe_tm))
+                    probe_tm = CalcProbeTm(probe_seq).Tm
+                    self.probes.append(Oligo(self.start+i+1, probe_seq, probe_tm))
     def output(self, path): 
         probe_data = []
         for probe in self.probes: 
@@ -219,7 +223,7 @@ class probeGenerator:
         csv_writer.writerows(probe_data)
         csv_file.close()
 
-class primerGenerator: 
+class PrimerGenerator: 
     def __init__(
         self,
         template, 
@@ -332,8 +336,9 @@ class primerGenerator:
                 fw_primer_seq = str(self.template[fw_start:fw_end])
                 if check_primer(fw_primer_seq) is True: 
                     self.fw_primers.append(
-                        oligo(
-                            self.pb_start-i, 
+                        Oligo(
+                            #Root pos is 1-based, and 5' end of fw primer instead of 3'
+                            self.pb_start-i-fw_len+1,  
                             fw_primer_seq, 
                             float(calcTm(fw_primer_seq, dv_conc=1.5))
                         )
@@ -347,7 +352,6 @@ class primerGenerator:
         3) Last five nucleotides at the 3' end contain no more than two G + C residues
         4) No more than 4 consecutive nucleotides within the primer 
         
-        Input data: 
         Input data: 
         1) target_seq - str - target sequence - ATCTGATCATGATCATGACTAGTCATGGC
         2) pb_start - int - start index of 5'-end of the probe - 607
@@ -423,8 +427,9 @@ class primerGenerator:
                 rev_primer_seq = str(Seq.Seq(self.template[rev_start:rev_end]).reverse_complement())
                 if check_primer(rev_primer_seq) is True: 
                     self.rev_primers.append(
-                        oligo(
-                            self.pb_end + i, 
+                        Oligo(
+                            #Root pos 5' end of reverse complement, 1based
+                            self.pb_end + i + 1, 
                             rev_primer_seq, 
                             float(calcTm(rev_primer_seq, dv_conc=1.5))
                         )
@@ -437,8 +442,8 @@ class primerGenerator:
                 rev_primer_seq = str(Seq.Seq(self.template[rev_start:rev_end]).reverse_complement())
                 if check_primer(rev_primer_seq) is True: 
                     self.rev_primers.append(
-                        oligo(
-                            self.pb_end + i, 
+                        Oligo(
+                            self.pb_end + i + 1, 
                             rev_primer_seq, 
                             float(calcTm(rev_primer_seq, dv_conc=1.5))
                         )
@@ -467,7 +472,7 @@ class primerGenerator:
                 ):  
                     if check_tm_diff(fw_primer.tm, rev_primer.tm) <= self.max_tm_diff:
                         self.primer_pairs.append(
-                            primerpair(
+                            PrimerPair(
                                 fw_primer, 
                                 rev_primer
                             )
@@ -522,7 +527,7 @@ class primerGenerator:
         csv_writer.writerows(primer_data)
         csv_file.close()
 
-class blast: 
+class Blast: 
     def __init__(self, blastdb):
         self.blastdb = blastdb
         self.blastdb_len = self._get_blastdb_len()
