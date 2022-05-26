@@ -14,7 +14,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output",
-        dest="target_path", 
+        dest="output_path", 
         action='store',
         default=None, 
         type=pathlib.Path,
