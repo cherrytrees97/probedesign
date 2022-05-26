@@ -1,14 +1,13 @@
+from tmcalc import calcProbeTm
 from Bio import SeqIO, Seq
 import csv
 import tempfile
 import multiprocessing
 import subprocess
 import io
-from operator import attrgetter
 import pandas as pd
-import primer3
+from primer3 import calcTm
 from math import floor
-from functools import partial
 
 class oligo: 
     def __init__(self, root_pos, seq, tm):
@@ -186,9 +185,10 @@ class probeGenerator:
             #Iterate over all probe lengths
             for probe_len in range(self.min_length, self.max_length + 1): 
                 probe_seq = self.template[i:i+probe_len]
+                probe_tm = calcProbeTm(probe_seq)
                 if check_probe(probe_seq) is True: 
                     #Note that the coordinates are converted back to 1-based
-                    self.probes.append(oligo(self.start+i+1, probe_seq, 0))
+                    self.probes.append(oligo(self.start+i+1, probe_seq, probe_tm))
     def output(self, path): 
         probe_data = []
         for probe in self.probes: 
@@ -196,7 +196,8 @@ class probeGenerator:
                 (
                     probe.root_pos,
                     probe.len, 
-                    probe.seq, 
+                    probe.seq,
+                    probe.tm, 
                     probe.sensitivity, 
                     probe.specificity,
                     probe.score,
@@ -334,7 +335,7 @@ class primerGenerator:
                         oligo(
                             self.pb_start-i, 
                             fw_primer_seq, 
-                            float(primer3.calcTm(fw_primer_seq, dv_conc=1.5))
+                            float(calcTm(fw_primer_seq, dv_conc=1.5))
                         )
                     )
     def find_rev_primers(self):
@@ -425,7 +426,7 @@ class primerGenerator:
                         oligo(
                             self.pb_end + i, 
                             rev_primer_seq, 
-                            float(primer3.calcTm(rev_primer_seq, dv_conc=1.5))
+                            float(calcTm(rev_primer_seq, dv_conc=1.5))
                         )
                     )
         #Case 2: end of root positions
@@ -439,7 +440,7 @@ class primerGenerator:
                         oligo(
                             self.pb_end + i, 
                             rev_primer_seq, 
-                            float(primer3.calcTm(rev_primer_seq, dv_conc=1.5))
+                            float(calcTm(rev_primer_seq, dv_conc=1.5))
                         )
                     )
     def find_primer_pairs(self): 

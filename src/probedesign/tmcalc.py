@@ -6,7 +6,7 @@ Purpose: This should be the Tm calculator function as seen in Primer Express 3.0
 
 import math
 
-class Probe():
+class calcProbeTm():
     """
     A class to represent TaqManMGB probes.
     Attributes (that you care about):
@@ -25,7 +25,7 @@ class Probe():
         self.sequence: str = self.AsciiStringToDNA(sequence)
         self.Tm: float = self.getMGBTmFromStr(self.sequence)
         self.GC: float = (self.sequence.count('G') + self.sequence.count('C'))/len(self.sequence)
-
+        return self.Tm
 
     def __repr__(self) -> str:
         return f'probe_seq: {self.sequence}, probe_tm {round(self.Tm, 0)}'
@@ -350,19 +350,3 @@ class Probe():
                 pass
             self.Tm = self.CalcT(0.005, 0.1, 2.0000000000000002E-7, self.sProba)
         return self.Tm
-
-
-list_of_probes: list = [
-    'TCTCAGAATTTGGAGGAGGTA',
-    'agcgagacgaactacag',
-    'aggcatttcgcccgaat',
-    'aggcatttcgcccgaat',
-    'acgtgtattcggcttcttaga',
-    'actagtacgagcattgc',
-    'TCAGAATTTGGAGGAGGTA',
-    'cttgctcgaaagagctt',
-    'tagcatcatcggctacca'
-    ]
-
-for probe in list_of_probes:
-    print(Probe(probe).GC, Probe(probe))
