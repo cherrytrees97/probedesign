@@ -25,7 +25,6 @@ class calcProbeTm():
         self.sequence: str = self.AsciiStringToDNA(sequence)
         self.Tm: float = self.getMGBTmFromStr(self.sequence)
         self.GC: float = (self.sequence.count('G') + self.sequence.count('C'))/len(self.sequence)
-        return self.Tm
 
     def __repr__(self) -> str:
         return f'probe_seq: {self.sequence}, probe_tm {round(self.Tm, 0)}'

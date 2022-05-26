@@ -185,7 +185,7 @@ class probeGenerator:
             #Iterate over all probe lengths
             for probe_len in range(self.min_length, self.max_length + 1): 
                 probe_seq = self.template[i:i+probe_len]
-                probe_tm = calcProbeTm(probe_seq)
+                probe_tm = calcProbeTm(probe_seq).Tm
                 if check_probe(probe_seq) is True: 
                     #Note that the coordinates are converted back to 1-based
                     self.probes.append(oligo(self.start+i+1, probe_seq, probe_tm))
