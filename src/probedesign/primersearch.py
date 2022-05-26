@@ -157,9 +157,9 @@ def main():
         primer_blast.output(rev_blast_results, output_path, 'rev')
     
     #Generate primer pairs
-    timers['primers-pair-start'] = time.monotonic()
+    timers['primer-pair-start'] = time.monotonic()
     primer_gen.find_primer_pairs()
-    timers['primers-pair-end'] = time.monotonic()
+    timers['primer-pair-end'] = time.monotonic()
     timers['pp-calc-start'] = time.monotonic()
     if skip_check_flag is False:
         #Generate primer pair data
