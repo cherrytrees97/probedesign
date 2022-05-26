@@ -1,5 +1,5 @@
-from consensus import alignment
-from oligogenerator import primerGenerator, blast
+from consensus import Alignment
+from oligogenerator import PrimerGenerator, Blast
 import pathlib
 import argparse
 import time
@@ -107,13 +107,13 @@ def main():
         "start":time.monotonic(),
     }
     print_runtime("Start")
-    target_alignment = alignment(target_alignment_path)
+    target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
     target_accessions = target_alignment.get_accessions()
 
     print("Generating primers...")
     
-    primer_gen = primerGenerator(
+    primer_gen = PrimerGenerator(
         target_alignment.consensus, 
         pb_start, pb_len, 
         min_primer_len, 
@@ -132,7 +132,7 @@ def main():
 
     #Generate BLAST results
     if skip_check_flag is False: 
-        primer_blast = blast(blastdb)
+        primer_blast = Blast(blastdb)
         timers['blast-start'] = time.monotonic()
         fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers)
         rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers)

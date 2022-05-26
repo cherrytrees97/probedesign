@@ -6,7 +6,7 @@ Purpose: This should be the Tm calculator function as seen in Primer Express 3.0
 
 import math
 
-class calcProbeTm():
+class CalcProbeTm():
     """
     A class to represent TaqManMGB probes.
     Attributes (that you care about):

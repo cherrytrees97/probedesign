@@ -1,5 +1,5 @@
-from oligogenerator import probeGenerator, blast
-from consensus import alignment
+from oligogenerator import ProbeGenerator, Blast
+from consensus import Alignment
 import pathlib
 import argparse
 import pandas as pd
@@ -105,13 +105,13 @@ def main():
     #Arguments
     target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, = parse_args()
     #Process the alignment
-    target_alignment = alignment(target_alignment_path)
+    target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
     target_accessions = target_alignment.get_accessions()
 
     #Generate Probes
     print_runtime("Start")
-    pb_gen = probeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
+    pb_gen = ProbeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
     print("Generating probes...")
     timers['pb_gen-start'] = time.monotonic()
     pb_gen.get_probes()
@@ -122,11 +122,10 @@ def main():
 
     #Do the specificity check
     if check_flag is False: 
-        #Read target accessions
-        #target_accessions = get_target_accessions(target_accession_path)
+        #Read target accession        
         #Generate BLAST results
         timers['blast-start'] = time.monotonic()
-        pb_blast = blast(blastdb)
+        pb_blast = Blast(blastdb)
         #blast_results = pb_blast.blast_all(pb_gen.probes)
         blast_results = pb_blast.multi_blast(pb_gen.probes)
         timers['blast-end'] = time.monotonic()
@@ -138,8 +137,8 @@ def main():
         print("Calculating sensitivity and specificity...")
         timers['calc-start'] = time.monotonic()
         for probe in pb_gen.probes: 
-            probe.calculate_sensitivity(blast_results[probe.id], target_accessions)
-            probe.calculate_specificity(blast_results[probe.id], target_accessions, pb_blast.blastdb_len)
+            probe.calculate_sensitivity(blast_results[probe.id], target_alignment.sequence_regions)
+            probe.calculate_specificity(blast_results[probe.id], target_alignment.sequence_regions, pb_blast.blastdb_len)
             probe.calculate_score()
         timers['calc-end'] = time.monotonic()
         print("Calculation complete.")
