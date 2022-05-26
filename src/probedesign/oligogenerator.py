@@ -31,7 +31,7 @@ class Oligo:
                 oligo_start >= target_regions[target][0]
                 and oligo_end <= target_regions[target][1]
             ):
-                target_accessions.append(target)
+                target_accessions.append(target.strip('.1'))
         self.target_accessions = target_accessions
     def calculate_sensitivity(self, blast_results, target_regions):
         """
