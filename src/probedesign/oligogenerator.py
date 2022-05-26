@@ -48,6 +48,7 @@ class Oligo:
         if not self.target_accessions: 
             self._calculate_target_accessions(target_regions)
         assert(len(self.target_accessions) > 0)
+        print(self.target_accessions)
         #Take only accessions where there was a perfect match --> full query coverage, 100% identity
         perfect_match_results = blast_results.loc[(blast_results['qlen']==blast_results['length'])&(blast_results['pident']==100.0)]
         #Retrieve only the accessions list
@@ -57,6 +58,7 @@ class Oligo:
         for accession in amplified_accessions: 
                 if accession in self.target_accessions: 
                     target_match = target_match + 1
+        assert(target_match > 0), f"{self.id} has no matches?"
         #Calculate sensitivity and return
         self.sensitivity = target_match/len(self.target_accessions)
     def calculate_specificity(self, blast_results, target_regions, blastdb_len): 
