@@ -89,7 +89,7 @@ if __name__ == "__main__":
     target_path, output_path = parse_args()
     target_alignment = Alignment(target_path)
     target_alignment.get_consensus()
-    output_file = open(output_path.joinpath('consensus_sequence.fasta'), 'w')
+    output_file = open(output_path.joinpath(f'{target_path.stem}_consensus.fasta'), 'w')
     output_file.write(f">{target_path.stem}\n")
     output_file.write(target_alignment.consensus)
     output_file.close()
