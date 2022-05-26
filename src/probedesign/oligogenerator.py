@@ -19,7 +19,21 @@ class Oligo:
         self.sensitivity = 0
         self.specificity = 0
         self.score = 0
-    def calculate_sensitivity(self, blast_results, target_accessions):
+        self.target_accessions = None
+    def _calculate_target_accessions(self, target_regions):
+        #Determine the range the probe spans
+        oligo_start = self.root_pos - 1
+        oligo_end = oligo_start + self.len
+        #Determine target_accessions
+        target_accessions = []
+        for target in target_regions: 
+            if (
+                oligo_start >= target_regions[target][0]
+                and oligo_end <= target_regions[target][1]
+            ):
+                target_accessions.append(target)
+        self.target_accessions = target_accessions
+    def calculate_sensitivity(self, blast_results, target_regions):
         """
         Function calculates sensitivity of the oligo (binding to target sequences). 
         Binding is defined as 100% query coverage and 100% percent identity of the oligo to the target sequence.
@@ -30,10 +44,9 @@ class Oligo:
             FN = target accessions that were not amplified
             TP + FN = total number of target accessions
         """
-        #Determine the range the probe spans
-        pb_start = self.root_pos - 1
-
-
+        #Identify target accessions if it is not there
+        if not self.target_accessions: 
+            self._calculate_target_accessions(target_regions)
         #Take only accessions where there was a perfect match --> full query coverage, 100% identity
         perfect_match_results = blast_results.loc[(blast_results['qlen']==blast_results['length'])&(blast_results['pident']==100.0)]
         #Retrieve only the accessions list
@@ -41,11 +54,11 @@ class Oligo:
         target_match = 0
         #Count number of target accessions in the amplified accession list 
         for accession in amplified_accessions: 
-                if accession in target_accessions: 
+                if accession in self.target_accessions: 
                     target_match = target_match + 1
         #Calculate sensitivity and return
-        self.sensitivity = target_match/len(target_accessions)
-    def calculate_specificity(self, blast_results, target_accessions, blastdb_len): 
+        self.sensitivity = target_match/len(self.target_accessions)
+    def calculate_specificity(self, blast_results, target_regions, blastdb_len): 
         """
         Function calculates specificity of the oligo (binding to non-target sequences). 
         Binding is defined as simply appearing in the BLAST results --> this will be a overestimation of the specificity,
@@ -59,14 +72,17 @@ class Oligo:
             resulting in the following formula: 
             ((Total non-target) - (amplified non-target)) / total non-target
         """
+        #Identify target accessions if it is not there
+        if not self.target_accessions: 
+            self._calculate_target_accessions(target_regions)
         blast_match_accessions = set(blast_results.loc[:,'sacc'])
         #Remove every target_accession from the blast_match_accessions list
-        for accession in target_accessions:
+        for accession in self.target_accessions:
             if accession in blast_match_accessions:  
                 blast_match_accessions.remove(accession)
         #Calculate specificity
         #Total non-target = all_blast_sequences - target_accessions
-        self.specificity = (blastdb_len - len(blast_match_accessions))/(blastdb_len - len(target_accessions))
+        self.specificity = (blastdb_len - len(blast_match_accessions))/(blastdb_len - len(self.target_accessions))
     def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 
@@ -76,10 +92,17 @@ class PrimerPair:
         self.rev_primer = rev_primer
         self.sensitivity = 0
         self.specificity = 0
-        self.score = 0 
+        self.score = 0
+        self.target_accessions = None 
+    def _calculate_combined_target_accessions(self):
+        target_accessions = []
+        for accession in self.fw_primer.target_accessions: 
+            if accession in self.rev_primer.target_accessions: 
+                target_accessions.append(accession)
+        self.target_accessions = target_accessions
     def calc_tm_diff(self): 
         return abs(self.fw_primer.tm - self.rev_primer.tm)
-    def calculate_sensitivity(self, fw_blast_results, rev_blast_results, target_accessions): 
+    def calculate_sensitivity(self, fw_blast_results, rev_blast_results): 
         """
         Function calculates the sensitivity of a primer pair given the BLAST results for both. 
         Amplification is defined as an accession where both the forward and reverse primers have 
@@ -91,6 +114,9 @@ class PrimerPair:
             FN = target accessions that were not amplified
             TP + FN = total number of target accessions
         """
+        #If target_accessions has not been calculated, generate it
+        if not self.target_accessions:
+            self._calculate_combined_target_accessions()
         #Take only accessions where there was a perfect match --> full query coverage, 100% identity
         fw_perfect_match_results = fw_blast_results.loc[(fw_blast_results['qlen']==fw_blast_results['length'])&(fw_blast_results['pident']==100.0)]
         rev_perfect_match_results = rev_blast_results.loc[(rev_blast_results['qlen']==rev_blast_results['length'])&(rev_blast_results['pident']==100.0)]
@@ -101,21 +127,21 @@ class PrimerPair:
         target_match = 0
         #Count number of target accessions in the amplified accession list 
         for accession in amplified_accessions: 
-                if accession in target_accessions: 
+                if accession in self.target_accessions: 
                     target_match = target_match + 1
         #Calculate sensitivity and return
-        self.sensitivity = target_match/len(target_accessions)
-    def calculate_specificity(self, fw_blast_results, rev_blast_results, target_accessions, blastdb_len):
+        self.sensitivity = target_match/len(self.target_accessions)
+    def calculate_specificity(self, fw_blast_results, rev_blast_results, blastdb_len):
         fw_match_accessions = set(fw_blast_results.loc[:,'sacc'])
         rev_match_accessions = set(rev_blast_results.loc[:,'sacc'])
         amplified_accessions = set(fw_match_accessions&rev_match_accessions)
         #Remove every target_accession from the blast_match_accessions list
-        for accession in target_accessions:
+        for accession in self.target_accessions:
             if accession in amplified_accessions:  
                 amplified_accessions.remove(accession)
         #Calculate specificity
         #Total non-target = all_blast_sequences - target_accessions
-        self.specificity = (blastdb_len - len(amplified_accessions))/(blastdb_len - len(target_accessions))
+        self.specificity = (blastdb_len - len(amplified_accessions))/(blastdb_len - len(self.target_accessions))
     def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 

@@ -160,8 +160,8 @@ def main():
         for primer_pair in primer_gen.primer_pairs: 
             fw_blast = fw_blast_results[primer_pair.fw_primer.id]
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
-            primer_pair.calculate_sensitivity(fw_blast, rev_blast, target_accessions)
-            primer_pair.calculate_specificity(fw_blast, rev_blast, target_accessions, primer_blast.blastdb_len)
+            primer_pair.calculate_sensitivity(fw_blast, rev_blast)
+            primer_pair.calculate_specificity(fw_blast, rev_blast, primer_blast.blastdb_len)
             primer_pair.calculate_score()
     timers['pp-calc-end'] = time.monotonic() 
 
