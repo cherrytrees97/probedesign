@@ -4,6 +4,7 @@ import tempfile
 import multiprocessing
 import subprocess
 import io
+from operator import attrgetter
 import pandas as pd
 import primer3
 from math import floor
@@ -220,7 +221,7 @@ class probeGenerator:
 class primerGenerator: 
     def __init__(
         self,
-        template_seq_path, 
+        template, 
         pb_start, 
         pb_len,
         min_length, 
@@ -228,8 +229,7 @@ class primerGenerator:
         max_tm_diff
         ):
         #Input properties
-        template_seq_file = SeqIO.read(template_seq_path, 'fasta')
-        self.template = template_seq_file.seq
+        self.template = template
         self.pb_start = pb_start
         self.pb_len = pb_len
         self.pb_end = pb_start-1+pb_len
@@ -315,6 +315,8 @@ class primerGenerator:
                 0.3 <= percent_c_g <= 0.8 
                 and run_flag is False
                 and last5_flag is False
+                and not('n' in seq)
+                and not('N' in seq)
             ):
                 #print('Passed!')
                 return True
@@ -403,6 +405,8 @@ class primerGenerator:
                 0.3 <= percent_c_g <= 0.8 
                 and run_flag is False
                 and last5_flag is False
+                and not('n' in seq)
+                and not('N' in seq)
             ):
                 #print('Passed!')
                 return True
@@ -521,62 +525,7 @@ class blast:
     def __init__(self, blastdb, blastdb_len):
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
-        self.data = None
         self.NUM_POOL = 16
-    def blast_all(self, oligos): 
-        #Generate the oligo temporary file
-        fasta = tempfile.NamedTemporaryFile(delete=True)
-        for oligo in oligos:
-            fasta.write(f">{str(oligo.id)}\n{str(oligo.seq)}\n".encode())
-        fasta.seek(0)
-        #cpu_count = multiprocessing.cpu_count() - 2
-        cpu_count = 4
-        #Run the BLAST job
-        args = [
-            "blastn",
-            "-task",
-            "blastn-short",
-            "-db",
-            self.blastdb,
-            "-num_alignments",
-            str(self.blastdb_len),
-            "-outfmt",
-            "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
-            "-query",
-            fasta.name,
-            "-num_threads",
-            str(cpu_count),
-            "-mt_mode",
-            str(1)
-        ]
-        result = subprocess.run(args, capture_output=True)
-        decoded = result.stdout.decode('utf-8')
-        output = io.StringIO(decoded)
-        #Output formatting into dataframe
-        headers=[
-            'qacc',
-            'sacc',
-            'ssciname',
-            'pident',
-            'qlen',
-            'length',
-            'mismatch', 
-            'gapopen', 
-            'qstart', 
-            'qend', 
-            'sstart', 
-            'send', 
-            'evalue', 
-            'bitscore',
-        ]
-        self.data = pd.read_csv(output, sep=',', header=None, names=headers)
-        fasta.close()
-        #Split the data
-        list_oligo_ids = set(self.data['qacc'])
-        blast_results = dict()
-        for oligo_id in list_oligo_ids: 
-            blast_results[str(oligo_id)]=self.data.loc[self.data['qacc']==oligo_id]
-        return blast_results
     def blast(self, oligos): 
         #Generate the oligo temporary file
         fasta = tempfile.NamedTemporaryFile(delete=True)

@@ -1,4 +1,4 @@
-from oligogenerator import probeGenerator, oligo, blast
+from oligogenerator import probeGenerator, blast
 from consensus import alignment
 import pathlib
 import argparse

@@ -1,20 +1,24 @@
-from Bio import SeqIO, Seq
-import primer3
-from operator import attrgetter
+from consensus import alignment
+from oligogenerator import primerGenerator, blast
 import pathlib
 import argparse
-import tempfile
-import io
-import subprocess
-import pandas
-import csv
+
+def print_runtime(action) -> None:
+    """ Print the time and some defined action. """
+    print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
+
+def output_timers(timers): 
+    print(f"Total runtime: {timers['end'] - timers['start']}")
+    print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
+    print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
+    print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
 
 def parse_args(): 
     parser = argparse.ArgumentParser(description='Search for primers')
-    parser.add_argument('target_seq_path', 
+    parser.add_argument('target_alignment_path', 
         action='store', 
         type=pathlib.Path,
-        help = 'Path to target sequence file, fasta format'
+        help = 'Path to target alignment file, fasta format'
     )
     parser.add_argument('pb_start',
         metavar='pb_start', 
@@ -28,14 +32,14 @@ def parse_args():
         type=int, 
         help = 'Length of the probe'
     )
-    parser.add_argument('-min_primer_len',
+    parser.add_argument('--min_primer_len',
         action='store',
         type=int, 
         default=17,
         dest='min_primer_len',
         help='Minimum primer length'
     )
-    parser.add_argument('-max_primer_len',
+    parser.add_argument('--max_primer_len',
         action='store',
         type=int, 
         default=22,
@@ -51,55 +55,51 @@ def parse_args():
         help='Maximum temperature difference between forward and reverse'
     )
     #Arguments for specificity checking
-    parser.add_argument('-no_sens_spec',
+    parser.add_argument('--no_sens_spec',
         action='store_true',
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
     )
-    parser.add_argument('-blastdb',
+    parser.add_argument('--blastdb',
         action='store',
         type=str,
         dest='blastdb',
         default='',
         help='Name of blastdb'
     )
-    parser.add_argument('-blastdb_len',
+    parser.add_argument('--blastdb_len',
         action='store',
         type=int,
         dest='blastdb_len',
         help='Length of blastdb'
-    )
-    parser.add_argument('-target_accessions', 
-        metavar='target_accessions_path', 
-        action='store', 
-        type=pathlib.Path,
-        dest='target_accessions_path',
-        default='',
-        help = 'Path to target_accessions'
     )
     args = parser.parse_args()
 
     #Arguments
     #Target seq path, probe start, probe length, minimum primer length, max primer length, max allowable tm difference, sens_spec_flag, blastdb, blastdb length, target accessions path
     #Note conversion of pb_start to 0-based coordinate system
-    return (args.target_seq_path, args.pb_start-1, args.pb_len, args.min_primer_len, args.max_primer_len, args.tm_diff, args.sens_spec_flag, args.blastdb, args.blastdb_len, args.target_accessions_path)
-
-def get_target_accessions(path): 
-    target_accessions = []
-    input_file = open(path, 'r')
-    for line in input_file: 
-        target_accessions.append(line.strip('\n'))
-    input_file.close()
-    return target_accessions
+    return (
+        args.target_alignment_path, 
+        args.pb_start-1, 
+        args.pb_len, 
+        args.min_primer_len, 
+        args.max_primer_len, 
+        args.tm_diff, 
+        args.sens_spec_flag, 
+        args.blastdb, 
+        args.blastdb_len, 
+    )
 
 def main(): 
     #Get arguments
-    target_seq_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, blastdb_len, target_accessions_path = parse_args()
-    
-    target_accessions = get_target_accessions(target_accessions_path)
+    target_alignment_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, blastdb_len = parse_args()
+    #Process the alignment
+    target_alignment = alignment(target_alignment_path)
+    target_alignment.get_consensus()
+    target_accessions = target_alignment.get_accessions()
 
     primer_gen = primerGenerator(
-        target_seq_path, 
+        target_alignment.consensus, 
         pb_start, pb_len, 
         min_primer_len, 
         max_primer_len, 
@@ -112,9 +112,9 @@ def main():
 
     #Generate BLAST results
     if skip_check_flag is False: 
-        primer_blast = nemaBlast(blastdb, blastdb_len)
-        fw_blast_results = primer_blast.blast_all(primer_gen.fw_primers)
-        rev_blast_results = primer_blast.blast_all(primer_gen.rev_primers)
+        primer_blast = blast(blastdb, blastdb_len)
+        fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers)
+        rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers)
         for fw_primer in primer_gen.fw_primers: 
             fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_accessions)
             fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions, blastdb_len)
@@ -123,8 +123,8 @@ def main():
             rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
             rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, blastdb_len)
             rev_primer.calculate_score()
-        primer_blast.output(fw_blast_results, target_seq_path, 'fw')
-        primer_blast.output(rev_blast_results, target_seq_path, 'rev')
+        primer_blast.output(fw_blast_results, target_alignment_path, 'fw')
+        primer_blast.output(rev_blast_results, target_alignment_path, 'rev')
     
     #Generate primer pairs
     primer_gen.find_primer_pairs()
@@ -138,7 +138,7 @@ def main():
             primer_pair.calculate_score() 
 
     #Output
-    primer_gen.output(target_seq_path)
+    primer_gen.output(target_alignment_path)
 
 if __name__ == '__main__':
     main()
