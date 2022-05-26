@@ -525,7 +525,7 @@ class primerGenerator:
 class blast: 
     def __init__(self, blastdb):
         self.blastdb = blastdb
-        self.blastdb_len = self._get_blastdb_len(blastdb)
+        self.blastdb_len = self._get_blastdb_len()
         self.NUM_POOL = 16
     def _get_blastdb_len(self): 
         blastdb_file = open(self.blastdb)
