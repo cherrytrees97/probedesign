@@ -172,6 +172,7 @@ def main():
     timers['pp-calc-end'] = time.monotonic() 
 
     #Output
+    output_timers(timers)
     primer_gen.output(output_path)
 
 if __name__ == '__main__':
