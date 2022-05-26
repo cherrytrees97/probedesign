@@ -172,6 +172,7 @@ def main():
     timers['pp-calc-end'] = time.monotonic() 
 
     #Output
+    timers['end'] = time.monotonic()
     output_timers(timers)
     primer_gen.output(output_path)
 
