@@ -109,7 +109,7 @@ def main():
     print_runtime("Start")
     target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
-    target_accessions = target_alignment.get_accessions()
+    #target_accessions = target_alignment.get_accessions()
 
     print("Generating primers...")
     
@@ -139,12 +139,12 @@ def main():
         timers['blast-end'] = time.monotonic()
         timers['ind-calc-start'] = time.monotonic()
         for fw_primer in primer_gen.fw_primers: 
-            fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_accessions)
-            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions, primer_blast.blastdb_len)
+            fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions)
+            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
             fw_primer.calculate_score()
         for rev_primer in primer_gen.rev_primers: 
-            rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
-            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, primer_blast.blastdb_len)
+            rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions)
+            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
             rev_primer.calculate_score()
         timers['ind-calc-end'] = time.monotonic()
         primer_blast.output(fw_blast_results, output_path, 'fw')
