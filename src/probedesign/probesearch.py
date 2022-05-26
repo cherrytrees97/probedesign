@@ -141,7 +141,7 @@ def main():
         print("Blast complete.")
         #Output BLAST results
         print("Outputting BLAST results...")
-        pb_blast.output(blast_results, output_path)
+        pb_blast.output(blast_results, output_path, 'probe')
         print("Output complete...")
         print("Calculating sensitivity and specificity...")
         timers['calc-start'] = time.monotonic()

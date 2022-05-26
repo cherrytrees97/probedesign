@@ -596,13 +596,13 @@ class blast:
             for oligo_id in list_oligo_ids: 
                 blast_results[str(oligo_id)]=job.loc[job['qacc']==oligo_id]
         return blast_results
-    def output(self, blast_results, path): 
+    def output(self, blast_results, path, tag): 
         #Make path to store all of the blast results
-        blast_folder_path = path.joinpath('probe_blast')
+        blast_folder_path = path.joinpath(f'{tag}_blast')
         blast_folder_path.mkdir(exist_ok=True)
         #Go through blast result dictionary and output all of the data
         for blast_result_key in blast_results: 
-            blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_probe.csv")
+            blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_{tag}.csv")
             blast_output_file = open(blast_output_path, 'w')
             blast_results[blast_result_key].to_csv(blast_output_file)
             blast_output_file.close()
