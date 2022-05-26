@@ -47,6 +47,7 @@ class Oligo:
         #Identify target accessions if it is not there
         if not self.target_accessions: 
             self._calculate_target_accessions(target_regions)
+        assert(self.target_accessions > 0)
         #Take only accessions where there was a perfect match --> full query coverage, 100% identity
         perfect_match_results = blast_results.loc[(blast_results['qlen']==blast_results['length'])&(blast_results['pident']==100.0)]
         #Retrieve only the accessions list
