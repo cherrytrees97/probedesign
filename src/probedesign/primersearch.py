@@ -32,6 +32,13 @@ def parse_args():
         type=int, 
         help = 'Length of the probe'
     )
+    parser.add_argument('--output_path', 
+        action='store',
+        type=pathlib.Path, 
+        default=None,
+        dest='output_path', 
+        help='Output path',
+    )
     parser.add_argument('--min_primer_len',
         action='store',
         type=int, 
@@ -75,11 +82,15 @@ def parse_args():
     )
     args = parser.parse_args()
 
+    if not args.output_path: 
+        args.output_path = args.target_alignment_path.parent
+
     #Arguments
     #Target seq path, probe start, probe length, minimum primer length, max primer length, max allowable tm difference, sens_spec_flag, blastdb, blastdb length, target accessions path
     #Note conversion of pb_start to 0-based coordinate system
     return (
-        args.target_alignment_path, 
+        args.target_alignment_path,
+        args.output_path, 
         args.pb_start-1, 
         args.pb_len, 
         args.min_primer_len, 
@@ -92,7 +103,7 @@ def parse_args():
 
 def main(): 
     #Get arguments
-    target_alignment_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, blastdb_len = parse_args()
+    target_alignment_path, output_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, blastdb_len = parse_args()
     #Process the alignment
     target_alignment = alignment(target_alignment_path)
     target_alignment.get_consensus()
@@ -123,8 +134,8 @@ def main():
             rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
             rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, blastdb_len)
             rev_primer.calculate_score()
-        primer_blast.output(fw_blast_results, target_alignment_path, 'fw')
-        primer_blast.output(rev_blast_results, target_alignment_path, 'rev')
+        primer_blast.output(fw_blast_results, output_path, 'fw')
+        primer_blast.output(rev_blast_results, output_path, 'rev')
     
     #Generate primer pairs
     primer_gen.find_primer_pairs()
@@ -138,7 +149,7 @@ def main():
             primer_pair.calculate_score() 
 
     #Output
-    primer_gen.output(target_alignment_path)
+    primer_gen.output(output_path)
 
 if __name__ == '__main__':
     main()

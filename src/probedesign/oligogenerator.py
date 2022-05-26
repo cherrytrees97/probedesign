@@ -496,7 +496,7 @@ class primerGenerator:
                 )
             )
         
-        output_path = path.with_name('primer_pairs.csv')
+        output_path = path.joinpath('primer_pairs.csv')
         csv_file = open(output_path, 'w', newline='')
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(
