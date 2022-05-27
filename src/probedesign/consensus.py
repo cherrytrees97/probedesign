@@ -1,8 +1,31 @@
 from Bio import AlignIO
 import numpy as np
 import pandas as pd
+import argparse
+import pathlib
 
-class alignment: 
+def parse_args(): 
+    parser = argparse.ArgumentParser("Generate a consensus sequence.")
+    parser.add_argument(
+        "target_path",
+        action='store', 
+        type=pathlib.Path, 
+        help='Path to alignment'
+    )
+    parser.add_argument(
+        "--output",
+        dest="output_path", 
+        action='store',
+        default=None, 
+        type=pathlib.Path,
+        help='Output path'
+    )
+    args = parser.parse_args()
+    if not args.output_path: 
+        args.output_path = args.target_path.parent
+    return (args.target_path, args.output_path)
+
+class Alignment: 
     def __init__(self, alignment_path): 
         self.alignment = AlignIO.read(alignment_path, 'fasta')
         self.seq_position_data = None
@@ -61,3 +84,12 @@ class alignment:
         for seq in self.alignment: 
             list_id.append(seq.id.split('.')[0])
         return list_id
+
+if __name__ == "__main__":
+    target_path, output_path = parse_args()
+    target_alignment = Alignment(target_path)
+    target_alignment.get_consensus()
+    output_file = open(output_path.joinpath(f'{target_path.stem}_consensus.fasta'), 'w')
+    output_file.write(f">{target_path.stem}\n")
+    output_file.write(target_alignment.consensus)
+    output_file.close()

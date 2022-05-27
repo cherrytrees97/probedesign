@@ -1,5 +1,5 @@
-from consensus import alignment
-from oligogenerator import primerGenerator, blast
+from consensus import Alignment
+from oligogenerator import PrimerGenerator, Blast
 import pathlib
 import argparse
 import time
@@ -107,13 +107,13 @@ def main():
         "start":time.monotonic(),
     }
     print_runtime("Start")
-    target_alignment = alignment(target_alignment_path)
+    target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
-    target_accessions = target_alignment.get_accessions()
+    #target_accessions = target_alignment.get_accessions()
 
     print("Generating primers...")
     
-    primer_gen = primerGenerator(
+    primer_gen = PrimerGenerator(
         target_alignment.consensus, 
         pb_start, pb_len, 
         min_primer_len, 
@@ -132,19 +132,19 @@ def main():
 
     #Generate BLAST results
     if skip_check_flag is False: 
-        primer_blast = blast(blastdb)
+        primer_blast = Blast(blastdb)
         timers['blast-start'] = time.monotonic()
         fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers)
         rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers)
         timers['blast-end'] = time.monotonic()
         timers['ind-calc-start'] = time.monotonic()
         for fw_primer in primer_gen.fw_primers: 
-            fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_accessions)
-            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions, primer_blast.blastdb_len)
+            fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions)
+            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
             fw_primer.calculate_score()
         for rev_primer in primer_gen.rev_primers: 
-            rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
-            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, primer_blast.blastdb_len)
+            rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions)
+            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
             rev_primer.calculate_score()
         timers['ind-calc-end'] = time.monotonic()
         primer_blast.output(fw_blast_results, output_path, 'fw')
@@ -160,8 +160,8 @@ def main():
         for primer_pair in primer_gen.primer_pairs: 
             fw_blast = fw_blast_results[primer_pair.fw_primer.id]
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
-            primer_pair.calculate_sensitivity(fw_blast, rev_blast, target_accessions)
-            primer_pair.calculate_specificity(fw_blast, rev_blast, target_accessions, primer_blast.blastdb_len)
+            primer_pair.calculate_sensitivity(fw_blast, rev_blast)
+            primer_pair.calculate_specificity(fw_blast, rev_blast, primer_blast.blastdb_len)
             primer_pair.calculate_score()
     timers['pp-calc-end'] = time.monotonic() 
 
