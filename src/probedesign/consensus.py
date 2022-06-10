@@ -26,7 +26,45 @@ def parse_args():
     return (args.target_path, args.output_path)
 
 class Alignment: 
+    """
+    Represents a DNA sequence alignment.
+
+    Attributes
+    ----------
+    alignment : Bio.Align.MultipleSeqAlignment
+        The MultipleSeqAlignment object returned by AlignIO.read()
+    seq_position_data : pandas.DataFrame
+        The sequence alignment represented as a dataframe.
+        Representing the alignment as a dataframe simplifies creation of a consensus sequence.
+        Each row corrresponds to a position on the alignment. 
+        Each column corresponds to an accession.
+    seq_regions : dict
+        Dictionary containing tuples indexed by accession ID. 
+        Tuples contain (start_index, end_index) of first and last base of a sequence 
+        in the alignment. 
+    consensus : str
+        String representing the consensus nucleotide sequence of the alignment. 
+    
+    Methods
+    -------
+    get_consensus(threshold: float=0.9) -> None
+        Determines the consensus sequence of the alignment. 
+    get_accessions() -> list
+        Get a list of accession IDs for sequences in the alignment.
+    _get_sequence_regions() -> dict
+        Get a dictionary with tuples containing start and end indices of the first
+        and last base of sequences in the alignment. 
+    _get_sequence_position_data() -> pandas.Dataframe
+        Get a dataframe representation of the sequence alignment.
+    """
+
     def __init__(self, alignment_path): 
+        """
+        Parameters
+        ----------
+        alignment_path : pathlib.Path
+            The path to the multiple sequence alignment file, in fasta format. 
+        """
         self.alignment = AlignIO.read(alignment_path, 'fasta')
         self.seq_position_data = None
         self.sequence_regions = dict()
@@ -35,10 +73,21 @@ class Alignment:
         self.consensus = None
     def __repr__(self): 
         return self.alignment
-    def get_consensus(self, threshold=0.9): 
+    def get_consensus(self, threshold: float=0.9) -> None: 
         """
-        
+        Get the consensus sequence of the alignment. 
+
+        Uses seq_position_data (dataframe representation) of the alignment to generate
+        the consensus sequence. 
+        TODO: Figure out what the algorithm is and describe it here. 
+
+        Parameters
+        ----------
+        threshold : float=0.9
+            Base consensus is only called if the most frequent basecall exceeds the
+            threshold percentage. 
         """
+
         consensus=[]
         for base_position in self.seq_position_data.iterrows(): 
             nucleotide_counts = base_position[1].value_counts(normalize=True)
@@ -47,13 +96,21 @@ class Alignment:
             else: 
                 consensus.append("n")
         self.consensus = "".join(consensus).replace("-","")
-    def _get_sequence_regions(self): 
+    def _get_sequence_regions(self) -> dict: 
         """
-        Function to determine the start and end of sequences in an alignment
-        alignment - Bio.Align.MultipleSeqAlignment object
-        sequence region - list of tuples(start_index, end_index)
-        0-based indices, half open
-        """
+        Determine the start and end of each sequence in an alignment.
+
+        Goes through each sequence in the alignment, and takes the ungapped sequence.
+        The first and last nucleotide of the ungapped sequence is then searched from either
+        end of the gapped sequence. 
+        The indices are recorded in the sequence_regions dictionary, keyed by the sequence
+        accession. 
+
+        Parameters
+        ----------
+        None
+        """  
+
         for sequence in self.alignment: 
             ungap_sequence = sequence.seq.ungap()
             start_base = ungap_sequence[0]
@@ -62,9 +119,16 @@ class Alignment:
             end_index = sequence.seq.rfind(end_base)
             self.sequence_regions[sequence.id] = (start_index, end_index+1)
         return self.sequence_regions
-    def _get_sequence_position_data(self):
+    def _get_sequence_position_data(self) -> pd.DataFrame:
         """
-        Function to store information in a dataframe
+        Converts MultipleSeqAlignment object into a dataframe representation. 
+
+        The dataframe representation of the alignment is easier to use, especially when 
+        implementing the threshold calculation method of the consensus sequence. 
+
+        Parameters
+        ----------
+        None
         """
         dict_series = dict()
         for sequence in self.alignment: 
@@ -79,7 +143,8 @@ class Alignment:
             dict_series[sequence.id] = series
         self.seq_position_data = pd.DataFrame(dict_series)
         return self.seq_position_data
-    def get_accessions(self): 
+    def get_accessions(self) -> list: 
+        """Get the accessions for the sequences in the alignment. """
         list_id = []
         for seq in self.alignment: 
             list_id.append(seq.id.split('.')[0])
