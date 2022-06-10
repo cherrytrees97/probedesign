@@ -1,3 +1,13 @@
+"""Consensus sequence of alignment
+
+This module facilitates generating a consensus sequence from a multiple sequence
+alignment. The multiple sequence alignment must be in fasta format. 
+
+This module requires that 'Biopython' and 'pandas' is installed within the Python
+environment that you are using this module in. 
+
+This module can also be run as a script to generate a consensus sequence.
+"""
 from Bio import AlignIO
 import numpy as np
 import pandas as pd
@@ -5,24 +15,33 @@ import argparse
 import pathlib
 
 def parse_args(): 
-    parser = argparse.ArgumentParser("Generate a consensus sequence.")
+    parser = argparse.ArgumentParser(__doc__)
     parser.add_argument(
         "target_path",
         action='store', 
         type=pathlib.Path, 
-        help='Path to alignment'
+        help='Path to multiple sequence alignment file, in fasta format.'
     )
     parser.add_argument(
+        "-o",
         "--output",
         dest="output_path", 
         action='store',
         default=None, 
         type=pathlib.Path,
-        help='Output path'
+        help='Path to directory that the consensus fasta will be output to. '
     )
     args = parser.parse_args()
+    #Assign output path to the path of the input file if no output path
+    #was specified. 
     if not args.output_path: 
         args.output_path = args.target_path.parent
+    #Arg checker
+    if not(
+        args.output_path.exists()
+        and args.target_path.exists()
+    ):
+        parser.error('Invalid paths.')
     return (args.target_path, args.output_path)
 
 class Alignment: 
@@ -150,7 +169,7 @@ class Alignment:
             list_id.append(seq.id.split('.')[0])
         return list_id
 
-if __name__ == "__main__":
+def main():
     target_path, output_path = parse_args()
     target_alignment = Alignment(target_path)
     target_alignment.get_consensus()
@@ -158,3 +177,6 @@ if __name__ == "__main__":
     output_file.write(f">{target_path.stem}\n")
     output_file.write(target_alignment.consensus)
     output_file.close()
+
+if __name__ == "__main__":
+    main()
