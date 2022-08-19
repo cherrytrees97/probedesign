@@ -224,12 +224,17 @@ class ProbeGenerator:
     def output(self, path): 
         probe_data = []
         for probe in self.probes: 
+            if probe.target_accessions: 
+                length = probe.target_accessions
+            else:
+                length = None
+            
             probe_data.append(
                 (
                     probe.root_pos,
                     probe.len, 
                     probe.seq,
-                    len(probe.target_accessions),
+                    length,
                     probe.tm, 
                     probe.sensitivity, 
                     probe.specificity,

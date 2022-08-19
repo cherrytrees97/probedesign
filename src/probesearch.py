@@ -13,8 +13,9 @@ def print_runtime(action) -> None:
 def output_timers(timers): 
     print(f"Total runtime: {timers['end'] - timers['start']}")
     print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
-    print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
-    print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
+    if 'blast_end' in timers.keys(): 
+        print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
+        print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
 
 def parse_args(): 
     parser = argparse.ArgumentParser(description='probesearch.py - identify viable probes in an alignment for given target sequences')
