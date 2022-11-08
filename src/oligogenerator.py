@@ -12,7 +12,7 @@ from math import floor
 #Third-party libraries
 from Bio import SeqIO, Seq
 import pandas as pd
-from primer3 import calcTm
+#from primer3 import calcTm
 #Local modules
 from consensus import Alignment
 from tmcalc import CalcProbeTm
@@ -127,17 +127,21 @@ class Oligo:
         """
 
         #Identify target accessions if it is not there
-        seq_regions = alignment.sequence_regions
         amplified_accessions = []
+        sequence_dict = {}
 
         if not self.target_accessions: 
+            seq_regions = alignment.sequence_regions
             self._calculate_target_accessions(seq_regions)
-        
+
+        for sequence in alignment: 
+            sequence_dict[sequence.id] = str(sequence.seq.ungap())
+
         #TODO: MAKE THIS NOT GARBAGE BUT LOGICALLY THIS SHOULD MAKE SENSE
         i = 0
         for accession in self.target_accessions: 
             
-            sequence = str(alignment.alignment[accession].seq.ungap())
+            sequence = sequence_dict[accession]
             
             if self.seq in sequence: 
                 i += 1
