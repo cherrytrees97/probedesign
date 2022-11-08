@@ -104,8 +104,7 @@ class Oligo:
                 oligo_start >= seq_regions[target][0]
                 and oligo_end <= seq_regions[target][1]
             ):
-                #The strip is to remove ".1" appended to most IDs of NCBI sequences
-                target_accessions.append(target.strip('.1'))
+                target_accessions.append(target)
         
         self.target_accessions = target_accessions
 
