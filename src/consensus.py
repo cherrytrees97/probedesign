@@ -87,12 +87,20 @@ class Alignment:
             The path to the multiple sequence alignment file, in fasta format. 
         """
         self.alignment = AlignIO.read(alignment_path, 'fasta')
+        self.sequences = self._get_sequences()
         self.sequence_regions = self._get_sequence_regions()
         self.seq_position_data = self._get_sequence_position_data()
         self.consensus = None
 
     def __repr__(self): 
         return self.alignment
+
+    def _get_sequences(self) -> dict:
+        """Get ungapped sequences, put into a nice dictionary keyed by accession"""
+        sequence_dict = {}
+        for sequence in self.alignment: 
+            sequence_dict[sequence.id] = str(sequence.seq.ungap())
+        return sequence_dict
 
     def get_consensus(self, threshold: float=0.9) -> None: 
         """

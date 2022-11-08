@@ -128,20 +128,16 @@ class Oligo:
 
         #Identify target accessions if it is not there
         amplified_accessions = []
-        sequence_dict = {}
 
         if not self.target_accessions: 
             seq_regions = alignment.sequence_regions
             self._calculate_target_accessions(seq_regions)
 
-        for sequence in alignment: 
-            sequence_dict[sequence.id] = str(sequence.seq.ungap())
-
         #TODO: MAKE THIS NOT GARBAGE BUT LOGICALLY THIS SHOULD MAKE SENSE
         i = 0
         for accession in self.target_accessions: 
             
-            sequence = sequence_dict[accession]
+            sequence = alignment.sequences[accession]
             
             if self.seq in sequence: 
                 i += 1
