@@ -35,7 +35,9 @@ def parse_args():
         type=int, 
         help = 'Length of the probe'
     )
-    parser.add_argument('--output_path', 
+    parser.add_argument(
+        '--output_path',
+        '-o',
         action='store',
         type=pathlib.Path, 
         default=None,
@@ -64,6 +66,7 @@ def parse_args():
         default=5.0,
         help='Maximum temperature difference between forward and reverse'
     )
+    
     #Arguments for specificity checking
     parser.add_argument('--no_sens_spec',
         action='store_true',
@@ -77,6 +80,15 @@ def parse_args():
         default='',
         help='Name of blastdb'
     )
+    parser.add_argument(
+        '--mp_job',
+        '-m',
+        action='store',
+        type=int,
+        default=1,
+        dest='num_jobs',
+        help='Number of processes to spawn to handle BLAST jobs. (Default=1)'
+    )
 
     args = parser.parse_args()
 
@@ -86,21 +98,24 @@ def parse_args():
     #Arguments
     #Target seq path, probe start, probe length, minimum primer length, max primer length, max allowable tm difference, sens_spec_flag, blastdb, blastdb length, target accessions path
     #Note conversion of pb_start to 0-based coordinate system
-    return (
-        args.target_alignment_path,
-        args.output_path, 
-        args.pb_start-1, 
-        args.pb_len, 
-        args.min_primer_len, 
-        args.max_primer_len, 
-        args.tm_diff, 
-        args.sens_spec_flag, 
-        args.blastdb, 
-    )
+    args.pb_start = args.pb_start - 1
+
+    return args
 
 def main(): 
     #Get arguments
-    target_alignment_path, output_path, pb_start, pb_len, min_primer_len, max_primer_len, max_tm_diff, skip_check_flag, blastdb, = parse_args()
+    args = parse_args()
+    target_alignment_path = args.target_alignment_path
+    output_path = args.output
+    pb_start = args.pb_start
+    pb_len = args.pb_len
+    min_primer_len = args.min_primer_len
+    max_primer_len = args.max_primer_len
+    max_tm_diff = args.tm_diff
+    skip_check_flag = args.sens_spec_flag
+    blastdb = args.blastdb
+    num_jobs = args.num_jobs
+
     #Process the alignment
     #timer
     timers={
@@ -109,7 +124,6 @@ def main():
     print_runtime("Start")
     target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
-    #target_accessions = target_alignment.get_accessions()
 
     print("Generating primers...")
     
@@ -133,18 +147,29 @@ def main():
     #Generate BLAST results
     if skip_check_flag is False: 
         primer_blast = Blast(blastdb)
+
         timers['blast-start'] = time.monotonic()
-        fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers)
-        rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers)
+        fw_blast_results = primer_blast.multi_blast(primer_gen.fw_primers, num_jobs)
+        rev_blast_results = primer_blast.multi_blast(primer_gen.rev_primers, num_jobs)
         timers['blast-end'] = time.monotonic()
+
         timers['ind-calc-start'] = time.monotonic()
         for fw_primer in primer_gen.fw_primers: 
-            fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions)
-            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
+            fw_primer.calculate_sensitivity(target_alignment)
+            fw_primer.calculate_specificity(
+                target_alignment, 
+                fw_blast_results[fw_primer.id], 
+                primer_blast.blastdb_len,
+                )
             fw_primer.calculate_score()
+
         for rev_primer in primer_gen.rev_primers: 
-            rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions)
-            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_alignment.sequence_regions, primer_blast.blastdb_len)
+            rev_primer.calculate_sensitivity(target_alignment)
+            rev_primer.calculate_specificity(
+                target_alignment,
+                rev_blast_results[rev_primer.id], 
+                primer_blast.blastdb_len
+                )
             rev_primer.calculate_score()
         timers['ind-calc-end'] = time.monotonic()
         primer_blast.output(fw_blast_results, output_path, 'fw')
