@@ -74,6 +74,15 @@ def parse_args():
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
     )
+    parser.add_argument(
+        '--mp_job',
+        '-m',
+        action='store',
+        type=int,
+        default=1,
+        dest='num_jobs',
+        help='Number of processes to spawn to handle BLAST jobs. (Default=1)'
+    )
     #Arguments for specificity checking
     parser.add_argument(
         '--blastdb',
@@ -86,29 +95,34 @@ def parse_args():
     args = parser.parse_args()
     if not args.output_path:
         args.output_path = args.target_alignment_path.parent
+    
     #Note that coordinates are converted to 0-based half-open coordinates
-    return (
-        args.target_alignment_path, 
-        args.output_path, 
-        args.target_start-1, 
-        args.target_end, 
-        args.min_primer_len, 
-        args.max_primer_len, 
-        args.sens_spec_flag, 
-        args.blastdb, 
-    )
+    args.target_start = args.target_start - 1
+    
+    return args
 
 def main():
     #Timer
-    timers ={
+    timers = {
         "start":time.monotonic(),
     }
     #Arguments
-    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, = parse_args()
+    args = parse_args()
+    
+    target_alignment_path = args.target_alignment_path
+    output_path = args.output_path
+    target_start = args.target_start
+    target_end = args.target_end
+    min_primer_len = args.min_primer_len
+    max_primer_len = args.max_primer_len
+    check_flag = args.sens_spec_flag
+    blastdb = args.blastdb
+    num_jobs = args.num_jobs
+
     #Process the alignment
     target_alignment = Alignment(target_alignment_path)
     target_alignment.get_consensus()
-    target_accessions = target_alignment.get_accessions()
+    #target_accessions = target_alignment.get_accessions()
 
     #Generate Probes
     print_runtime("Start")
@@ -128,7 +142,7 @@ def main():
         timers['blast-start'] = time.monotonic()
         pb_blast = Blast(blastdb)
         #blast_results = pb_blast.blast_all(pb_gen.probes)
-        blast_results = pb_blast.multi_blast(pb_gen.probes)
+        blast_results = pb_blast.multi_blast(pb_gen.probes, num_jobs)
         timers['blast-end'] = time.monotonic()
         print("Blast complete.")
         #Output BLAST results
