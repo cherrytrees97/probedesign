@@ -136,7 +136,9 @@ class Oligo:
         #TODO: MAKE THIS NOT GARBAGE BUT LOGICALLY THIS SHOULD MAKE SENSE
         i = 0
         for accession in self.target_accessions: 
-            sequence = alignment.alignment[seq_regions[accession][0]:seq_regions[accession][1]]
+            
+            sequence = str(alignment.alignment[accession].seq.ungap())
+            
             if self.seq in sequence: 
                 i += 1
                 amplified_accessions.append(accession)
