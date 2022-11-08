@@ -68,11 +68,20 @@ def parse_args():
         dest='max_primer_len',
         help='Maximum primer length (default=22)'
     )
+    #Arguments for specificity checking
     parser.add_argument(
         '--no_sens_spec_check',
         action='store_true',
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
+    )
+    parser.add_argument(
+        '--blastdb',
+        action='store',
+        type=pathlib.Path,
+        dest='blastdb',
+        default='',
+        help='Name of blastdb'
     )
     parser.add_argument(
         '--mp_job',
@@ -83,15 +92,7 @@ def parse_args():
         dest='num_jobs',
         help='Number of processes to spawn to handle BLAST jobs. (Default=1)'
     )
-    #Arguments for specificity checking
-    parser.add_argument(
-        '--blastdb',
-        action='store',
-        type=pathlib.Path,
-        dest='blastdb',
-        default='',
-        help='Name of blastdb'
-    )
+
     args = parser.parse_args()
     if not args.output_path:
         args.output_path = args.target_alignment_path.parent
