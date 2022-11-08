@@ -128,7 +128,7 @@ class Oligo:
         """
 
         #Identify target accessions if it is not there
-        seq_regions = alignment.seq_regions
+        seq_regions = alignment.sequence_regions
         amplified_accessions = []
 
         if not self.target_accessions: 
@@ -176,7 +176,7 @@ class Oligo:
             Specificity score. Ranges between 0 to 1. 1 is most specific. 
         """
 
-        seq_regions = alignment.seq_regions
+        seq_regions = alignment.sequence_regions
         #Identify target accessions if it is not there
         if not self.target_accessions: 
             self._calculate_target_accessions(seq_regions)
