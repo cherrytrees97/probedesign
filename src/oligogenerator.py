@@ -530,7 +530,7 @@ class ProbeGenerator:
                     probe.root_pos,
                     probe.len, 
                     probe.seq,
-                    accessions_covered,
+                    len(accessions_covered),
                     probe.tm, 
                     probe.sensitivity, 
                     probe.specificity,
