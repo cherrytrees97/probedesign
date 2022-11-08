@@ -12,7 +12,7 @@ from math import floor
 #Third-party libraries
 from Bio import SeqIO, Seq
 import pandas as pd
-#from primer3 import calcTm
+from primer3 import calcTm
 #Local modules
 from consensus import Alignment
 from tmcalc import CalcProbeTm
@@ -299,7 +299,7 @@ class PrimerPair:
                 num_amplified += 1
                 amplified_accessions.append(accession_fw)
         
-        sensitivity = num_amplified/target_accessions
+        sensitivity = num_amplified/len(target_accessions)
         self.amplified_accessions = amplified_accessions
 
         return sensitivity

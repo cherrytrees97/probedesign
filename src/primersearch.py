@@ -106,7 +106,7 @@ def main():
     #Get arguments
     args = parse_args()
     target_alignment_path = args.target_alignment_path
-    output_path = args.output
+    output_path = args.output_path
     pb_start = args.pb_start
     pb_len = args.pb_len
     min_primer_len = args.min_primer_len
@@ -172,6 +172,7 @@ def main():
                 )
             rev_primer.calculate_score()
         timers['ind-calc-end'] = time.monotonic()
+
         primer_blast.output(fw_blast_results, output_path, 'fw')
         primer_blast.output(rev_blast_results, output_path, 'rev')
     
@@ -185,7 +186,7 @@ def main():
         for primer_pair in primer_gen.primer_pairs: 
             fw_blast = fw_blast_results[primer_pair.fw_primer.id]
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
-            primer_pair.calculate_sensitivity(fw_blast, rev_blast)
+            primer_pair.calculate_sensitivity()
             primer_pair.calculate_specificity(fw_blast, rev_blast, primer_blast.blastdb_len)
             primer_pair.calculate_score()
     timers['pp-calc-end'] = time.monotonic() 
