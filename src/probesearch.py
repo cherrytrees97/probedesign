@@ -152,8 +152,8 @@ def main():
         print("Calculating sensitivity and specificity...")
         timers['calc-start'] = time.monotonic()
         for probe in pb_gen.probes: 
-            probe.calculate_sensitivity(blast_results[probe.id], target_alignment.sequence_regions)
-            probe.calculate_specificity(blast_results[probe.id], target_alignment.sequence_regions, pb_blast.blastdb_len)
+            probe.calculate_sensitivity(target_alignment)
+            probe.calculate_specificity(target_alignment, blast_results[probe.id], pb_blast.blastdb_len)
             probe.calculate_score()
         timers['calc-end'] = time.monotonic()
         print("Calculation complete.")
