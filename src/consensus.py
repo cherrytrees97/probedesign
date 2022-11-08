@@ -153,13 +153,15 @@ class Alignment:
         """  
         sequence_regions = dict()
 
+        seq_id = sequence.id.split('.')[0]
+
         for sequence in self.alignment: 
             ungap_sequence = sequence.seq.ungap()
             start_base = ungap_sequence[0]
             end_base = ungap_sequence[-1]
             start_index = sequence.seq.find(start_base)
             end_index = sequence.seq.rfind(end_base)
-            sequence_regions[sequence.id] = (start_index, end_index+1)
+            sequence_regions[seq_id] = (start_index, end_index+1)
 
         return sequence_regions
 
