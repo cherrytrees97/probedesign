@@ -133,7 +133,7 @@ class Alignment:
                 consensus.append(nucleotide_counts.index[0])
             else: 
                 consensus.append("N")
-        consensus_sequence = "".join(consensus).replace("-","")
+        consensus_sequence = "".join(consensus).replace("-","").upper()
         self.consensus = consensus_sequence
 
         return consensus_sequence
