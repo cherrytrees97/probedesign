@@ -1,24 +1,18 @@
-from oligogenerator import ProbeGenerator, Blast
-from consensus import Alignment
+#Standard libraries
 import pathlib
 import argparse
+import logging
+#Third-party libraries
 import pandas as pd
 import numpy as np
-import time
-
-def print_runtime(action) -> None:
-    """ Print the time and some defined action. """
-    print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
-
-def output_timers(timers): 
-    print(f"Total runtime: {timers['end'] - timers['start']}")
-    print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
-    if 'blast_end' in timers.keys(): 
-        print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
-        print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
+#Local modules
+from oligogenerator import ProbeGenerator, Blast
+from consensus import Alignment
 
 def parse_args(): 
-    parser = argparse.ArgumentParser(description='probesearch.py - identify viable probes in an alignment for given target sequences')
+    parser = argparse.ArgumentParser(
+        description='probesearch.py - identify viable probes in an alignment for given target sequences'
+    )
     parser.add_argument(
         'target_alignment_path', 
         action='store', 
@@ -103,67 +97,55 @@ def parse_args():
     return args
 
 def main():
-    #Timer
-    timers = {
-        "start":time.monotonic(),
-    }
     #Arguments
     args = parse_args()
     
-    target_alignment_path = args.target_alignment_path
-    output_path = args.output_path
-    target_start = args.target_start
-    target_end = args.target_end
-    min_primer_len = args.min_primer_len
-    max_primer_len = args.max_primer_len
-    check_flag = args.sens_spec_flag
-    blastdb = args.blastdb
-    num_jobs = args.num_jobs
+    #Set up logger
+    logging.basicConfig(
+        encoding='utf-8',
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(args.output_path.joinpath('probesearch.log')),
+            logging.StreamHandler()
+        ],
+        format='%(levelname)s:%(message)s'
+    )
 
     #Process the alignment
-    target_alignment = Alignment(target_alignment_path)
+    logging.info(f'Probesearch - Designing probes for {args.target_alignment_path.stem}.')
+
+    target_alignment = Alignment(args.target_alignment_path)
     target_alignment.get_consensus()
-    #target_accessions = target_alignment.get_accessions()
 
     #Generate Probes
-    print_runtime("Start")
-    pb_gen = ProbeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
-    print("Generating probes...")
-    timers['pb_gen-start'] = time.monotonic()
-    pb_gen.get_probes()
-    timers['pb_gen-end'] = time.monotonic()
-    print("Probes finished!")
+    logging.info(f'Generating probes...')
 
-    print(f"Total number of probes generated: {len(pb_gen.probes)}")
+    pb_gen = ProbeGenerator(target_alignment.consensus, args.target_start, args.target_end, args.min_primer_len, args.max_primer_len)
+    pb_gen.get_probes()
+
+    logging.info(f'Generated {len(pb_gen.probes)} probes.')
 
     #Do the specificity check
-    if check_flag is False: 
-        #Read target accession        
+    if args.sens_spec_flag is False:     
         #Generate BLAST results
-        timers['blast-start'] = time.monotonic()
-        pb_blast = Blast(blastdb)
-        #blast_results = pb_blast.blast_all(pb_gen.probes)
-        blast_results = pb_blast.multi_blast(pb_gen.probes, num_jobs)
-        timers['blast-end'] = time.monotonic()
-        print("Blast complete.")
+        logging.info(f'BLASTing probes...')
+
+        pb_blast = Blast(args.blastdb)
+        blast_results = pb_blast.multi_blast(pb_gen.probes, args.num_jobs)
+
         #Output BLAST results
-        print("Outputting BLAST results...")
-        pb_blast.output(blast_results, output_path, 'probe')
-        print("Output complete...")
-        print("Calculating sensitivity and specificity...")
-        timers['calc-start'] = time.monotonic()
+        pb_blast.output(blast_results, args.output_path, 'probe')
+
+        #Calculate sensitivity and specificity
+        logging.info(f'Calculating sensitivity and specificity...')
+
         for probe in pb_gen.probes: 
             probe.calculate_sensitivity(target_alignment)
             probe.calculate_specificity(target_alignment, blast_results[probe.id], pb_blast.blastdb_len)
             probe.calculate_score()
-        timers['calc-end'] = time.monotonic()
-        print("Calculation complete.")
-        #Output probe list
-        pb_gen.output(output_path)
-    else: 
-        pb_gen.output(output_path)
-    print_runtime("End")
-    timers['end'] = time.monotonic()
-    output_timers(timers)
+
+    pb_gen.output(args.output_path)
+    logging.info(f'Finished!')
+
 if __name__ == '__main__': 
     main()
