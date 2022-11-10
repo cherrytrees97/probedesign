@@ -133,6 +133,7 @@ def main():
         pb_blast = Blast(args.blastdb)
         blast_results = pb_blast.multi_blast(pb_gen.probes, args.num_jobs)
 
+        logging.info(f'BLAST jobs complete!')
         #Output BLAST results
         pb_blast.output(blast_results, args.output_path, 'probe')
 

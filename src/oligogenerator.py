@@ -14,7 +14,7 @@ from Bio import SeqIO, Seq
 import pandas as pd
 from primer3 import calcTm
 #Local modules
-from consensus import Alignment
+from consensus import Alignment   
 from tmcalc import CalcProbeTm
 
 class Oligo: 
@@ -110,7 +110,7 @@ class Oligo:
 
         return target_accessions
 
-    def calculate_sensitivity(self, alignment: Alignment) -> float:
+    def calculate_sensitivity(self, alignment: Alignment, reverse: bool = False) -> float:
         """
         Calculates sensitivity using solely the alignment. Essentially, a string search
         is done for the oligo sequence on each sequence in the alignment
@@ -136,15 +136,18 @@ class Oligo:
         #TODO: MAKE THIS NOT GARBAGE BUT LOGICALLY THIS SHOULD MAKE SENSE
         i = 0
         for accession in self.target_accessions: 
-            
-            sequence = alignment.sequences[accession]
-            
+            if not reverse:
+                sequence = alignment.sequences[accession].upper()
+            else: 
+                sequence = str(Seq.Seq(alignment.sequences[accession]).reverse_complement()).upper()
+
             if self.seq in sequence: 
                 i += 1
                 amplified_accessions.append(accession)
 
         sensitivity = i/len(self.target_accessions)
         self.amplified_accessions = amplified_accessions
+        self.sensitivity = sensitivity
 
         return sensitivity
 
@@ -301,6 +304,8 @@ class PrimerPair:
         
         sensitivity = num_amplified/len(target_accessions)
         self.amplified_accessions = amplified_accessions
+
+        self.sensitivity = sensitivity
 
         return sensitivity
 
@@ -743,27 +748,45 @@ class PrimerGenerator:
             else: 
                 return False
         
+        fw_primer_indices = []
         fw_primers = []
 
-        #Search for each root position and each legal primer length.
-        #Search starts from primer that is directly against the probe. 
-        #FW primer is slowly shifted out until the 3' end is 50 bp away from probe. 
-        #Each of these primer sequences are checked for the primer conditions. 
-        for i in range(50): 
-            for fw_len in range(self.min_length, self.max_length+1):
-                fw_start = self.pb_start - i - fw_len
-                fw_end = self.pb_start - i
-                fw_primer_seq = str(self.template[fw_start:fw_end])
-                if check_primer(fw_primer_seq) is True: 
-                    fw_primers.append(
-                        Oligo(
-                            #Root pos is 1-based, and 5' end of fw primer instead of 3'
-                            self.pb_start-i-fw_len+1,  
-                            fw_primer_seq, 
-                            float(calcTm(fw_primer_seq, dv_conc=1.5))
-                        )
+        #Determine if from the current root position of the probe, all of the indices before are valid. 
+        #Otherwise, use a truncated range to search for forward primers
+        if self.pb_start - self.max_length - 50 < 0: 
+            range_len = self.pb_start - self.max_length + 1
+            print("Start too close to beginning of seq. Truncated cases")
+
+            #This range length only applies longest case; there's another few cases before it
+            #Calculate edge cases
+            edge_range = 50 - (self.pb_start - self.max_length) + 1
+
+            for edge_index in range(1, edge_range): 
+                length = self.max_length - edge_index
+                if length >= self.min_length: 
+                    fw_primer_indices.append((0, length))
+
+        else: 
+            range_len = 51
+
+        for gap_size in range(range_len): 
+            for fw_len in range(self.min_length, self.max_length + 1):
+                fw_start = self.pb_start - gap_size - fw_len
+                fw_end = self.pb_start - gap_size
+                fw_primer_indices.append((fw_start, fw_end))
+
+        #Get the sequence and check
+        for index in fw_primer_indices:
+            sequence = self.template[index[0]:index[1]]
+            if check_primer(sequence): 
+                fw_primers.append(
+                    Oligo(
+                        index[0] + 1,
+                        sequence,
+                        float(calcTm(sequence, dv_conc=1.5)),
                     )
-        
+                )
+
         self.fw_primers = fw_primers
         
         return fw_primers
@@ -771,39 +794,6 @@ class PrimerGenerator:
     def find_rev_primers(self):
         """
         Function finds all viable REV primers.
-        REV primer criteria: 
-        1) Between min and max length 
-        2) % GC is 30% to 80%
-        3) Last five nucleotides at the 3' end contain no more than two G + C residues
-        4) No more than 4 consecutive nucleotides within the primer 
-        
-        Input data: 
-        1) target_seq - str - target sequence - ATCTGATCATGATCATGACTAGTCATGGC
-        2) pb_start - int - start index of 5'-end of the probe - 607
-        3) pb_end - int - index of 3'-end of the probe (1 past index of last probe nucleotide) - 623 
-
-        Output data: 
-        [
-            {root_pos:0, len:17, seq:''}
-        ]
-
-        Algorithm: 
-        The 1st root position is the pb_end index. 
-        The last legal root position is the case where: 
-            1) fw_primer is at the MIN_PRIMER_LEN
-            2) rev_primer is at the MIN_PRIMER_LEN
-            3) fw_primer is directly adjacent to probe (no gap)
-        To calculate the last legal root position: 
-            150 - 2(MIN_PRIMER_LEN) - pb_len
-
-        WORKED EXAMPLE
-        --------------
-        Let the last legal position be x, min_primer_len be 17, and max_primer len be 22. 
-        From 1 to X - (max_primer_len - min_primer_len + 1), there are max_primer_len - min_primer_len + 1 primers. 
-        For each subsequent position, the number of primers decreases by 1 until the last position, 
-        where the only legal primer length is min_primer_len. 
-
-        {root_pos:pb_end + i, len:rev_len, seq:[(pb_end+i):(pb_end+i+pb_len)]}
 
         Parameters
         ----------
@@ -899,41 +889,39 @@ class PrimerGenerator:
             else: 
                 return False
 
+        template = str(self.template)
+
+        rev_primer_indices = []
+        rev_primer_indices_real = []
         rev_primers = []
 
-        #Defining the last legal root position.
+        #last_root_pos --> assumes fw primer of min length directly adjacent to probe
+        #indicates boundary of last viable rev primer root given the 150 bp limit
         last_root_pos = 150 - 2*self.min_length - self.pb_len
 
-        #Case 1: all primer lengths are available at these root positions.
-        for i in range(last_root_pos - (self.max_length) - self.min_length + 1): 
-            for rev_len in range(self.min_length, self.max_length+1): 
+        #Iterate through all of the root positions and get primer indices
+        for i in range(last_root_pos + 1):
+            for rev_len in range(self.min_length, self.max_length + 1):
                 rev_start = self.pb_end + i
                 rev_end = rev_start + rev_len
-                #Take the reverse complement of the sequence to get the reverse primer sequence. 
-                rev_primer_seq = str(Seq.Seq(self.template[rev_start:rev_end]).reverse_complement())
-                if check_primer(rev_primer_seq) is True: 
-                    rev_primers.append(
-                        Oligo(
-                            #Root pos 5' end of reverse complement, 1based
-                            self.pb_end + i + 1, 
-                            rev_primer_seq, 
-                            float(calcTm(rev_primer_seq, dv_conc=1.5))
-                        )
+                rev_primer_indices.append((rev_start, rev_end))
+
+        #Remove any indices where they are past end of the sequence
+        for index in rev_primer_indices: 
+            if index[1] <= len(template): 
+                rev_primer_indices_real.append(index)
+
+        #Get rev primer sequence and check for conditions
+        for index in rev_primer_indices_real: 
+            rev_primer_seq = str(Seq.Seq(template[index[0]:index[1]]).reverse_complement())
+            if check_primer(rev_primer_seq) is True: 
+                rev_primers.append(
+                    Oligo(
+                        index[0], 
+                        rev_primer_seq, 
+                        float(calcTm(rev_primer_seq, dv_conc=1.5))
                     )
-        #Case 2: end of root positions.
-        for i in range(self.max_length - self.min_length + 1):
-            rev_start = self.pb_end + last_root_pos - i
-            for rev_len in range(self.min_length, self.min_length + 1 + i):
-                rev_end = rev_start + rev_end
-                rev_primer_seq = str(Seq.Seq(self.template[rev_start:rev_end]).reverse_complement())
-                if check_primer(rev_primer_seq) is True: 
-                    rev_primers.append(
-                        Oligo(
-                            self.pb_end + i + 1, 
-                            rev_primer_seq, 
-                            float(calcTm(rev_primer_seq, dv_conc=1.5))
-                        )
-                    )
+                )
         
         self.rev_primers = rev_primers
 

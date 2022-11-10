@@ -164,7 +164,7 @@ def main():
             fw_primer.calculate_score()
 
         for rev_primer in primer_gen.rev_primers: 
-            rev_primer.calculate_sensitivity(target_alignment)
+            rev_primer.calculate_sensitivity(target_alignment, reverse = True)
             rev_primer.calculate_specificity(
                 target_alignment,
                 rev_blast_results[rev_primer.id], 
