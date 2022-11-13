@@ -150,7 +150,7 @@ def get_param_string(args: argparse.Namespace) -> str:
         f"\tMin probe len: {args.min_probe_len}\n"
         f"\tMax probe len: {args.max_probe_len}\n"
         f"BLAST parameters\n"
-        f"\tCheck sens/spec: {args.sens_spec_flag}"
+        f"\tCheck sens/spec: {args.sens_spec_flag}\n"
         f"\tBLASTdb: {args.blastdb}\n"
         f"\tAllocated cores: {args.num_jobs}\n"
         f"Filter parameters\n"
