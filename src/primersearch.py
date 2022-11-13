@@ -7,69 +7,61 @@ import logging
 
 def parse_args(): 
     parser = argparse.ArgumentParser(description='Search for primers')
-    parser.add_argument('target_alignment_path', 
+
+    parser.add_argument(
+        'target_alignment_path', 
         action='store', 
         type=pathlib.Path,
         help = 'Path to target alignment file, fasta format'
     )
-    parser.add_argument('pb_start',
+    parser.add_argument(
+        'pb_start',
         metavar='pb_start', 
         action='store', 
         type=int, 
         help = 'Start coordinate of probe, 1-based coordinates'
     )
-    parser.add_argument('pb_len',
+    parser.add_argument(
+        'pb_len',
         metavar='pb_len', 
         action='store', 
         type=int, 
         help = 'Length of the probe'
     )
-    parser.add_argument(
-        '--output_path',
-        '-o',
-        action='store',
-        type=pathlib.Path, 
-        default=None,
-        dest='output_path', 
-        help='Output path',
-    )
-    parser.add_argument('--min_primer_len',
+
+    primer_param = parser.add_argument_group('Primer parameters')
+    primer_param.add_argument(
+        '--min_primer_len',
         action='store',
         type=int, 
         default=17,
         dest='min_primer_len',
         help='Minimum primer length'
     )
-    parser.add_argument('--max_primer_len',
+    primer_param.add_argument(
+        '--max_primer_len',
         action='store',
         type=int, 
         default=22,
         dest='max_primer_len',
         help='Maximum primer length'
     )
-    parser.add_argument('-d',
-        dest='tm_diff',
-        metavar='maximum_tm_diff',
-        action='store',
-        type=float,
-        default=5.0,
-        help='Maximum temperature difference between forward and reverse'
-    )
     
-    #Arguments for specificity checking
-    parser.add_argument('--no_sens_spec',
+    blast_param = parser.add_argument_group('BLAST parameters')
+    blast_param.add_argument(
+        '--no_sens_spec',
         action='store_true',
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
     )
-    parser.add_argument('--blastdb',
+    blast_param.add_argument('--blastdb',
         action='store',
         type=pathlib.Path,
         dest='blastdb',
         default='',
         help='Name of blastdb'
     )
-    parser.add_argument(
+    blast_param.add_argument(
         '--mp_job',
         '-m',
         action='store',
@@ -79,17 +71,104 @@ def parse_args():
         help='Number of processes to spawn to handle BLAST jobs. (Default=1)'
     )
 
+    output_param = parser.add_argument_group('Output parmaeters')
+    output_param.add_argument(
+        '--output_path',
+        '-o',
+        action='store',
+        type=pathlib.Path, 
+        default=None,
+        dest='output_path', 
+        help='Output path',
+    )
+
+    filter_param = parser.add_argument_group('Output Filter parameters')
+    filter_param.add_argument(
+        '--filter_tm',
+        '-ft',
+        action='store_true',
+        dest='f_tm',
+        help='Filter primers by tm diff, as well as min and max tm'
+    )
+    filter_param.add_argument(
+        '--max_tm_diff'
+        '-d',
+        dest='tm_diff',
+        metavar='maximum_tm_diff',
+        action='store',
+        type=float,
+        default=5.0,
+        help='Maximum temperature difference between forward and reverse'
+    )
+    filter_param.add_argument(
+        '--max_primer_tm',
+        action='store',
+        dest='max_tm',
+        type=float,
+        default=63.0,
+        help='Maximum tm for primer.'
+    )
+    filter_param.add_argument(
+        '--min_primer_tm',
+        action='store',
+        dest='min_tm',
+        type=float,
+        default=55.0,
+        help='Minimum tm for primer.'
+    )
+    filter_param.add_argument(
+        '--filter_seq_rep',
+        '-fs',
+        action='store_true',
+        dest='f_seq_rep',
+        help='Filter by probes returned by sequence representation'
+    )
+    filter_param.add_argument(
+        '--filter_min',
+        action='store',
+        dest='min_seq_rep',
+        default=0.5,
+        type=float,
+        help='Minimum percentage of sequences that need to be represented for probes to be returned. Default = 0.5'
+    )
+
     args = parser.parse_args()
 
     if not args.output_path: 
         args.output_path = args.target_alignment_path.parent
 
     #Arguments
-    #Target seq path, probe start, probe length, minimum primer length, max primer length, max allowable tm difference, sens_spec_flag, blastdb, blastdb length, target accessions path
     #Note conversion of pb_start to 0-based coordinate system
     args.pb_start = args.pb_start - 1
 
     return args
+
+def get_param_string(args: argparse.Namespace) -> str: 
+    """Returns formatted string that describes program parameters."""
+    param_string = (
+        "\nParameters for this run: \n"
+        f"\tInput alignment: {args.target_alignment_path}\n"
+        f"\tInput probe start: {args.pb_start}\n"
+        f"\tInput probe length: {args.pb_len}\n"
+        f"Primer parameters\n"
+        f"\tMin primer len: {args.min_primer_len}\n"
+        f"\tMax primer len: {args.max_primer_len}\n"
+        f"BLAST parameters\n"
+        f"\tCheck sens/spec: {args.sens_spec_flag}"
+        f"\tBLASTdb: {args.blastdb}\n"
+        f"\tAllocated cores: {args.num_jobs}\n"
+        f"Filter parameters\n"
+        f"\tFilter by sequence representation: {args.f_seq_rep}\n"
+        f"\tMin sequence rep: {args.min_seq_rep}\n"
+        f"\tFilter by Tm: {args.f_tm}\n"
+        f"\tMin primer Tm: {args.min_tm}\n"
+        f"\tMax primer Tm: {args.max_tm}\n"
+        f"\tMax Tm diff: {args.tm_diff}\n"
+        f"Output parameters\n"
+        f"\tOutput path: {args.output_path}"        
+    )
+
+    return param_string
 
 def main(): 
     #Get arguments
@@ -100,17 +179,21 @@ def main():
         encoding='utf-8',
         level=logging.INFO,
         handlers=[
-            logging.FileHandler(args.output_path.joinpath('probesearch.log')),
+            logging.FileHandler(args.output_path.joinpath('primersearch.log')),
             logging.StreamHandler()
         ],
         format='%(asctime)s:%(levelname)s: %(message)s',
-        datefmt='%m/%d/%Y_%H:%M:%S',
+        datefmt='%m/%d/%Y %H:%M:%S',
     )
 
     #Process the alignment
+    logging.info(f'Primersearch.py - designing primer pairs for probe {args.pb_start}-{args.pb_len}')
+    logging.info(f"{get_param_string(args)}")
+
     target_alignment = Alignment(args.target_alignment_path)
     target_alignment.get_consensus()
-
+    num_seq = len(target_alignment)
+    
     logging.info("Generating primers...")
     
     primer_gen = PrimerGenerator(
@@ -150,7 +233,7 @@ def main():
             fw_primer.calculate_score()
 
         for rev_primer in primer_gen.rev_primers: 
-            rev_primer.calculate_sensitivity(target_alignment, reverse = True)
+            rev_primer.calculate_sensitivity(target_alignment, reverse=True)
             rev_primer.calculate_specificity(
                 target_alignment,
                 rev_blast_results[rev_primer.id], 
@@ -158,7 +241,6 @@ def main():
                 )
             rev_primer.calculate_score()
         logging.info(f"Done!")
-
 
         primer_blast.output(fw_blast_results, args.output_path, 'fw')
         primer_blast.output(rev_blast_results, args.output_path, 'rev')
@@ -178,7 +260,16 @@ def main():
             primer_pair.calculate_score()
 
     #Output
-    primer_gen.output(args.output_path)
+    primer_gen.output(
+        args.output_path,
+        args.f_tm,
+        args.tm_diff,
+        args.max_tm,
+        args.min_tm,
+        args.f_seq_rep,
+        args.min_seq_rep,
+        num_seq,
+    )
     logging.info(f"Program done!")
 
 if __name__ == '__main__':

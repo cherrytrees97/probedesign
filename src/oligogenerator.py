@@ -506,7 +506,16 @@ class ProbeGenerator:
 
         return probes
 
-    def output(self, path): 
+    def output(
+        self, 
+        path: pathlib.Path, 
+        f_seq_rep: bool, 
+        min_seq_rep: float,
+        num_seq: int,
+        f_tm: bool,
+        min_tm: float,
+        max_tm: float,
+        ): 
         """
         Output a .csv file containing all of the probes and associated information.
 
@@ -530,6 +539,13 @@ class ProbeGenerator:
             else:
                 accessions_covered = None
             
+            #seq rep filter
+            if f_seq_rep and ((len(accessions_covered)/num_seq) < min_seq_rep):
+                continue
+            #tm filter
+            if f_tm and not(min_tm < probe.tm <= max_tm):
+                continue
+
             probe_data.append(
                 (
                     probe.root_pos,
@@ -542,6 +558,8 @@ class ProbeGenerator:
                     probe.score,
                 )
             )
+
+        probe_data.sort(key=lambda x: x[7], reverse=True)
 
         #Output csv
         output_path = path.joinpath('probe_candidates.csv')
@@ -948,11 +966,6 @@ class PrimerGenerator:
         ------
 
         """
-
-        def check_tm_diff(fw_tm, rev_tm):
-            """Calculate tm difference between fw and rev primers."""
-            return abs(fw_tm-rev_tm)
-
         primer_pairs = []
 
         for fw_primer in self.fw_primers: 
@@ -962,26 +975,37 @@ class PrimerGenerator:
             #Check two conditions:
             #1) Amplicon size limit
             #2) Max tm difference
+            #Using continue instead of break just in case the list is or some reason
+            #not sorted by its root position.
             for rev_primer in self.rev_primers:
                 if (
                     rev_primer.root_pos < root_pos_limit
                     and (rev_primer.root_pos + rev_primer.len - fw_primer.root_pos) <= 150
-                ):  
-                    if check_tm_diff(fw_primer.tm, rev_primer.tm) <= self.max_tm_diff:
-                        primer_pairs.append(
-                            PrimerPair(
-                                fw_primer, 
-                                rev_primer
-                            )
+                ):
+                    primer_pairs.append(
+                        PrimerPair(
+                            fw_primer, 
+                            rev_primer
+                        )
                     )
                 else: 
-                    break
+                    continue
         
         self.primer_pairs = primer_pairs
 
         return primer_pairs
 
-    def output(self, path): 
+    def output(
+        self,
+        path: pathlib.Path,
+        f_tm: bool,
+        max_tm_diff: float,
+        max_tm: float,
+        min_tm: float,
+        f_seq_rep: bool,
+        min_seq_rep: float,
+        num_seq: int,
+        ): 
         """
         Output a .csv file containing all of the primer pairs and associated information.
 
@@ -995,11 +1019,35 @@ class PrimerGenerator:
         None
 
         """
-        
+
         primer_data = []
 
         #Create a list of tuples from list of PrimerPair objects. 
-        for primer_pair in self.primer_pairs: 
+        for primer_pair in self.primer_pairs:
+            #Apply temperature filter, if specified 
+            tm_diff = abs(primer_pair.fw_primer.tm - primer_pair.rev_primer.tm)
+            if (
+                f_tm
+                and not (
+                    tm_diff > max_tm_diff
+                    or min_tm < primer_pair.fw_primer.tm < max_tm
+                    or min_tm < primer_pair.rev_primer.tm < max_tm
+                )
+            ): 
+                continue
+            
+            #Apply sequence representation filter, if specified
+            num_fw_accession = len(primer_pair.fw_primer.target_accessions)
+            num_rev_accession = len(primer_pair.rev_primer.target_accessions)
+            if (
+                f_seq_rep
+                and (
+                    num_fw_accession < num_seq
+                    or num_rev_accession < num_seq
+                )
+            ):
+                continue
+            
             primer_data.append(
                 (
                     primer_pair.fw_primer.root_pos,
