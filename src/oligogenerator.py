@@ -1037,13 +1037,13 @@ class PrimerGenerator:
                 continue
             
             #Apply sequence representation filter, if specified
-            num_fw_accession = len(primer_pair.fw_primer.target_accessions)
-            num_rev_accession = len(primer_pair.rev_primer.target_accessions)
+            p_fw_accession = len(primer_pair.fw_primer.target_accessions)/num_seq
+            p_rev_accession = len(primer_pair.rev_primer.target_accessions)/num_seq
             if (
                 f_seq_rep
                 and (
-                    num_fw_accession < num_seq
-                    or num_rev_accession < num_seq
+                    p_fw_accession < min_seq_rep
+                    or p_rev_accession < min_seq_rep
                 )
             ):
                 continue

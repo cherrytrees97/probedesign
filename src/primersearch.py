@@ -154,7 +154,7 @@ def get_param_string(args: argparse.Namespace) -> str:
         f"\tMin primer len: {args.min_primer_len}\n"
         f"\tMax primer len: {args.max_primer_len}\n"
         f"BLAST parameters\n"
-        f"\tCheck sens/spec: {args.sens_spec_flag}"
+        f"\tCheck sens/spec: {args.sens_spec_flag}\n"
         f"\tBLASTdb: {args.blastdb}\n"
         f"\tAllocated cores: {args.num_jobs}\n"
         f"Filter parameters\n"
@@ -192,7 +192,7 @@ def main():
 
     target_alignment = Alignment(args.target_alignment_path)
     target_alignment.get_consensus()
-    num_seq = len(target_alignment)
+    num_seq = len(target_alignment.alignment)
     
     logging.info("Generating primers...")
     
@@ -242,9 +242,11 @@ def main():
             rev_primer.calculate_score()
         logging.info(f"Done!")
 
+        logging.info(f"Outputting BLAST results...")
         primer_blast.output(fw_blast_results, args.output_path, 'fw')
         primer_blast.output(rev_blast_results, args.output_path, 'rev')
-    
+        logging.info(f"Done!")
+
     #Generate primer pairs
     logging.info(f"Finding primer pairs...")
     primer_gen.find_primer_pairs()
@@ -252,12 +254,14 @@ def main():
 
     if args.sens_spec_flag is False:
         #Generate primer pair data
+        logging.info(f"Calculating sensitivity and specificity scores for primer pairs...")
         for primer_pair in primer_gen.primer_pairs: 
             fw_blast = fw_blast_results[primer_pair.fw_primer.id]
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
             primer_pair.calculate_sensitivity()
             primer_pair.calculate_specificity(fw_blast, rev_blast, primer_blast.blastdb_len)
             primer_pair.calculate_score()
+        logging.info(f"Done!")
 
     #Output
     primer_gen.output(
