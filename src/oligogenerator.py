@@ -1028,11 +1028,14 @@ class PrimerGenerator:
             tm_diff = abs(primer_pair.fw_primer.tm - primer_pair.rev_primer.tm)
             if (
                 f_tm
-                or tm_diff > max_tm_diff
-                or primer_pair.fw_primer.tm > max_tm
-                or primer_pair.fw_primer.tm < min_tm
-                or primer_pair.rev_primer.tm > max_tm
-                or primer_pair.rev_primer.tm < min_tm
+                and
+                (
+                    tm_diff > max_tm_diff
+                    or primer_pair.fw_primer.tm > max_tm
+                    or primer_pair.fw_primer.tm < min_tm
+                    or primer_pair.rev_primer.tm > max_tm
+                    or primer_pair.rev_primer.tm < min_tm
+                )
             ): 
                 continue
             
