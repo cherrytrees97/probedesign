@@ -1029,7 +1029,7 @@ class PrimerGenerator:
             if (
                 f_tm
                 and not (
-                    tm_diff > max_tm_diff
+                    tm_diff < max_tm_diff
                     or min_tm < primer_pair.fw_primer.tm < max_tm
                     or min_tm < primer_pair.rev_primer.tm < max_tm
                 )
