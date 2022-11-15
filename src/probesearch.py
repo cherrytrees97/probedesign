@@ -1,40 +1,26 @@
-from oligogenerator import ProbeGenerator, Blast
-from consensus import Alignment
+#Standard libraries
 import pathlib
 import argparse
+import logging
+#Third-party libraries
 import pandas as pd
 import numpy as np
-import time
-
-def print_runtime(action) -> None:
-    """ Print the time and some defined action. """
-    print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
-
-def output_timers(timers): 
-    print(f"Total runtime: {timers['end'] - timers['start']}")
-    print(f"Probe generation runtime: {timers['pb_gen-end'] - timers['pb_gen-start']}")
-    if 'blast_end' in timers.keys(): 
-        print(f"BLAST runtime: {timers['blast-end'] - timers['blast-start']}")
-        print(f"Calculation runtime: {timers['calc-end'] - timers['calc-start']}")
+#Local modules
+from oligogenerator import ProbeGenerator, Blast
+from consensus import Alignment
 
 def parse_args(): 
-    parser = argparse.ArgumentParser(description='probesearch.py - identify viable probes in an alignment for given target sequences')
+    parser = argparse.ArgumentParser(
+        description='probesearch.py - identify viable probes in an alignment for given target sequences'
+    )
     parser.add_argument(
         'target_alignment_path', 
         action='store', 
         type=pathlib.Path,
         help = 'Path to target alignment file, fasta format'
     )
-    parser.add_argument(
-        '--output', 
-        metavar='output_directory',
-        dest='output_path',
-        default=None,
-        action='store',
-        type=pathlib.Path, 
-        help='Output path',
-    )
-    parser.add_argument(
+    probe_param = parser.add_argument_group('Probe parameters')
+    probe_param.add_argument(
         '--target_start',
         metavar='target_start', 
         dest='target_start',
@@ -43,7 +29,7 @@ def parse_args():
         type=int,
         help='Start coordinate of target region, 1-based coordinates'
     )
-    parser.add_argument(
+    probe_param.add_argument(
         '--target_end',
         metavar='target_end',
         dest='target_end',
@@ -52,30 +38,30 @@ def parse_args():
         type=int,
         help='End coordinate of target region, 1-based coordinates'
     )
-    parser.add_argument(
-        '--min_primer_len',
+    probe_param.add_argument(
+        '--min_probe_len',
         action='store',
         type=int,
         default=17,
-        dest='min_primer_len',
+        dest='min_probe_len',
         help='Minimum primer length (default=17)'
     )
-    parser.add_argument(
-        '--max_primer_len',
+    probe_param.add_argument(
+        '--max_probe_len',
         action='store',
         type=int,
         default=22,
-        dest='max_primer_len',
+        dest='max_probe_len',
         help='Maximum primer length (default=22)'
     )
-    parser.add_argument(
+    blast_param = parser.add_argument_group('BLAST parameters')
+    blast_param.add_argument(
         '--no_sens_spec_check',
         action='store_true',
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
     )
-    #Arguments for specificity checking
-    parser.add_argument(
+    blast_param.add_argument(
         '--blastdb',
         action='store',
         type=pathlib.Path,
@@ -83,72 +69,174 @@ def parse_args():
         default='',
         help='Name of blastdb'
     )
-    args = parser.parse_args()
-    if not args.output_path:
-        args.output_path = args.target_alignment_path.parent
-    #Note that coordinates are converted to 0-based half-open coordinates
-    return (
-        args.target_alignment_path, 
-        args.output_path, 
-        args.target_start-1, 
-        args.target_end, 
-        args.min_primer_len, 
-        args.max_primer_len, 
-        args.sens_spec_flag, 
-        args.blastdb, 
+    blast_param.add_argument(
+        '--mp_job',
+        '-m',
+        action='store',
+        type=int,
+        default=1,
+        dest='num_jobs',
+        help='Number of processes to spawn to handle BLAST jobs. (Default=1)'
+    )
+    output_param = parser.add_argument_group('Output parameters')
+    output_param.add_argument(
+        '--output',
+        '-o',
+        metavar='output_directory',
+        dest='output_path',
+        default=None,
+        action='store',
+        type=pathlib.Path, 
+        help='Output path',
+    )
+    filter_param = parser.add_argument_group('Filter parameters')
+    filter_param.add_argument(
+        '--filter_seq_rep',
+        '-fs',
+        action='store_true',
+        dest='f_seq_rep',
+        help='Filter by probes returned by sequence representation'
+    )
+    filter_param.add_argument(
+        '--filter_min',
+        action='store',
+        dest='min_seq_rep',
+        default=0.5,
+        type=float,
+        help='Minimum percentage of sequences that need to be represented for probes to be returned. Default = 0.5'
+    )
+    filter_param.add_argument(
+        '--filter_tm',
+        '-ft',
+        action='store_true',
+        dest='f_tm',
+        help='Filter probes by tm range'
+    )
+    filter_param.add_argument(
+        '--min_tm',
+        action='store',
+        dest='min_tm',
+        default=68.0,
+        type=float,
+        help='Minimum tm of probe for it to be returned. Default = 68.0'
+    )
+    filter_param.add_argument(
+        '--max_tm',
+        action='store',
+        dest='max_tm',
+        default=70.0,
+        type=float,
+        help='Maximum tm of probe for it to be returned. Default = 70.0'
     )
 
+    args = parser.parse_args()
+
+    if not args.output_path:
+        args.output_path = args.target_alignment_path.parent
+    
+    #Note that coordinates are converted to 0-based half-open coordinates
+    args.target_start = args.target_start - 1
+    
+    return args
+
+def get_param_string(args: argparse.Namespace) -> str: 
+    """Returns formatted string that describes program parameters."""
+    param_string = (
+        "\nParameters for this run: \n"
+        f"\tInput alignment: {args.target_alignment_path}\n"
+        f"Probe parameters\n"
+        f"\tProbe search start: {args.target_start}\n"
+        f"\tProbe search end: {args.target_end}\n"
+        f"\tMin probe len: {args.min_probe_len}\n"
+        f"\tMax probe len: {args.max_probe_len}\n"
+        f"BLAST parameters\n"
+        f"\tCheck sens/spec: {args.sens_spec_flag}\n"
+        f"\tBLASTdb: {args.blastdb}\n"
+        f"\tAllocated cores: {args.num_jobs}\n"
+        f"Filter parameters\n"
+        f"\tFilter by sequence representation: {args.f_seq_rep}\n"
+        f"\tMin sequence rep: {args.min_seq_rep}\n"
+        f"\tFilter by Tm: {args.f_tm}\n"
+        f"\tMin probe Tm: {args.min_tm}\n"
+        f"\tMax probe Tm: {args.max_tm}\n"
+        f"Output parameters\n"
+        f"\tOutput path: {args.output_path}"        
+    )
+
+    return param_string
+
 def main():
-    #Timer
-    timers ={
-        "start":time.monotonic(),
-    }
     #Arguments
-    target_alignment_path, output_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, = parse_args()
+    args = parse_args()
+    
+    #Set up logger
+    logging.basicConfig(
+        encoding='utf-8',
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(args.output_path.joinpath('probesearch.log')),
+            logging.StreamHandler()
+        ],
+        format='%(asctime)s:%(levelname)s: %(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S',
+    )
+
     #Process the alignment
-    target_alignment = Alignment(target_alignment_path)
+    logging.info(f'Probesearch - Designing probes for {args.target_alignment_path.stem}.')
+    logging.info(f"{get_param_string(args)}")
+
+    target_alignment = Alignment(args.target_alignment_path)
     target_alignment.get_consensus()
-    target_accessions = target_alignment.get_accessions()
+    num_seq = len(target_alignment.alignment)
 
     #Generate Probes
-    print_runtime("Start")
-    pb_gen = ProbeGenerator(target_alignment.consensus, target_start, target_end, min_primer_len, max_primer_len)
-    print("Generating probes...")
-    timers['pb_gen-start'] = time.monotonic()
-    pb_gen.get_probes()
-    timers['pb_gen-end'] = time.monotonic()
-    print("Probes finished!")
+    logging.info(f'Generating probes...')
 
-    print(f"Total number of probes generated: {len(pb_gen.probes)}")
+    pb_gen = ProbeGenerator(
+        target_alignment.consensus, 
+        args.target_start, 
+        args.target_end, 
+        args.min_probe_len, 
+        args.max_probe_len)
+    pb_gen.get_probes()
+
+    logging.info(f'Generated {len(pb_gen.probes)} probes.')
 
     #Do the specificity check
-    if check_flag is False: 
-        #Read target accession        
+    if args.sens_spec_flag is False:     
         #Generate BLAST results
-        timers['blast-start'] = time.monotonic()
-        pb_blast = Blast(blastdb)
-        #blast_results = pb_blast.blast_all(pb_gen.probes)
-        blast_results = pb_blast.multi_blast(pb_gen.probes)
-        timers['blast-end'] = time.monotonic()
-        print("Blast complete.")
+        logging.info(f'BLASTing probes...')
+
+        pb_blast = Blast(args.blastdb)
+        blast_results = pb_blast.multi_blast(pb_gen.probes, args.num_jobs)
+
+        logging.info(f'BLAST jobs complete!')
         #Output BLAST results
-        print("Outputting BLAST results...")
-        pb_blast.output(blast_results, output_path, 'probe')
-        print("Output complete...")
-        print("Calculating sensitivity and specificity...")
-        timers['calc-start'] = time.monotonic()
+        logging.info(f'Outputting BLAST result .csv to {str(args.output_path)}')
+
+        pb_blast.output(blast_results, args.output_path, 'probe')
+
+        logging.info(f'Output complete.')
+
+        #Calculate sensitivity and specificity
+        logging.info(f'Calculating sensitivity and specificity...')
+
         for probe in pb_gen.probes: 
-            probe.calculate_sensitivity(blast_results[probe.id], target_alignment.sequence_regions)
-            probe.calculate_specificity(blast_results[probe.id], target_alignment.sequence_regions, pb_blast.blastdb_len)
+            probe.calculate_sensitivity(target_alignment)
+            probe.calculate_specificity(target_alignment, blast_results[probe.id], pb_blast.blastdb_len)
             probe.calculate_score()
-        timers['calc-end'] = time.monotonic()
-        print("Calculation complete.")
-        #Output probe list
-        pb_gen.output(output_path)
-    else: 
-        pb_gen.output(output_path)
-    print_runtime("End")
-    timers['end'] = time.monotonic()
-    output_timers(timers)
+
+    pb_gen.output(
+        args.output_path, 
+        args.f_seq_rep, 
+        args.min_seq_rep, 
+        num_seq,
+        args.f_tm,
+        args.min_tm,
+        args.max_tm,
+        )
+
+    logging.info(f'Finished!')
+
 if __name__ == '__main__': 
     main()

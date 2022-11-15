@@ -8,11 +8,13 @@ environment that you are using this module in.
 
 This module can also be run as a script to generate a consensus sequence.
 """
+#Standard libraries
+import argparse
+import pathlib
+#Third-party libraries
 from Bio import AlignIO
 import numpy as np
 import pandas as pd
-import argparse
-import pathlib
 
 def parse_args(): 
     parser = argparse.ArgumentParser(__doc__)
@@ -77,7 +79,7 @@ class Alignment:
         Get a dataframe representation of the sequence alignment.
     """
 
-    def __init__(self, alignment_path): 
+    def __init__(self, alignment_path: pathlib.Path): 
         """
         Parameters
         ----------
@@ -85,13 +87,21 @@ class Alignment:
             The path to the multiple sequence alignment file, in fasta format. 
         """
         self.alignment = AlignIO.read(alignment_path, 'fasta')
-        self.seq_position_data = None
-        self.sequence_regions = dict()
-        self._get_sequence_regions()
-        self._get_sequence_position_data()
+        self.sequences = self._get_sequences()
+        self.sequence_regions = self._get_sequence_regions()
+        self.seq_position_data = self._get_sequence_position_data()
         self.consensus = None
+
     def __repr__(self): 
         return self.alignment
+
+    def _get_sequences(self) -> dict:
+        """Get ungapped sequences, put into a nice dictionary keyed by accession"""
+        sequence_dict = {}
+        for sequence in self.alignment: 
+            sequence_dict[sequence.id] = str(sequence.seq.ungap())
+        return sequence_dict
+
     def get_consensus(self, threshold: float=0.9) -> None: 
         """
         Get the consensus sequence of the alignment. 
@@ -105,16 +115,29 @@ class Alignment:
         threshold : float=0.9
             Base consensus is only called if the most frequent basecall exceeds the
             threshold percentage. 
+
+        Return
+        ------
+        consensus : str
+            Consensus sequence of the alignment.
         """
 
         consensus=[]
+
+        #For each base position, assign highest frequency nucleotide
+        #as the consensus basecall if it exceeds the threshold.
+        #Otherwise, assign as 'N'
         for base_position in self.seq_position_data.iterrows(): 
             nucleotide_counts = base_position[1].value_counts(normalize=True)
             if nucleotide_counts[0] >= threshold: 
                 consensus.append(nucleotide_counts.index[0])
             else: 
-                consensus.append("n")
-        self.consensus = "".join(consensus).replace("-","")
+                consensus.append("N")
+        consensus_sequence = ("".join(consensus).replace("-","")).upper()
+        self.consensus = consensus_sequence
+
+        return consensus_sequence
+
     def _get_sequence_regions(self) -> dict: 
         """
         Determine the start and end of each sequence in an alignment.
@@ -128,7 +151,15 @@ class Alignment:
         Parameters
         ----------
         None
+
+        Return
+        ------
+        sequence_regions : dict
+            Key = sequence accession. Each entry is a tuple of start and end index of the sequence
+            in the alignment. 
+
         """  
+        sequence_regions = dict()
 
         for sequence in self.alignment: 
             ungap_sequence = sequence.seq.ungap()
@@ -136,8 +167,10 @@ class Alignment:
             end_base = ungap_sequence[-1]
             start_index = sequence.seq.find(start_base)
             end_index = sequence.seq.rfind(end_base)
-            self.sequence_regions[sequence.id] = (start_index, end_index+1)
-        return self.sequence_regions
+            sequence_regions[sequence.id] = (start_index, end_index+1)
+
+        return sequence_regions
+
     def _get_sequence_position_data(self) -> pd.DataFrame:
         """
         Converts MultipleSeqAlignment object into a dataframe representation. 
@@ -148,6 +181,11 @@ class Alignment:
         Parameters
         ----------
         None
+
+        Return
+        ------
+        self.seq_position_data : DataFrame
+
         """
         dict_series = dict()
         for sequence in self.alignment: 
@@ -160,8 +198,9 @@ class Alignment:
             series.iloc[0:sequence_region[0]] = np.NaN
             series.iloc[sequence_region[1]:len(sequence.seq)] = np.NaN
             dict_series[sequence.id] = series
-        self.seq_position_data = pd.DataFrame(dict_series)
-        return self.seq_position_data
+        seq_position_data = pd.DataFrame(dict_series)
+        return seq_position_data
+
     def get_accessions(self) -> list: 
         """Get the accessions for the sequences in the alignment. """
         list_id = []
@@ -173,10 +212,10 @@ def main():
     target_path, output_path = parse_args()
     target_alignment = Alignment(target_path)
     target_alignment.get_consensus()
-    output_file = open(output_path.joinpath(f'{target_path.stem}_consensus.fasta'), 'w')
-    output_file.write(f">{target_path.stem}\n")
-    output_file.write(target_alignment.consensus)
-    output_file.close()
+    #Write consensus fasta
+    with open(output_path.joinpath(f'{target_path.stem}_consensus.fasta'), 'w') as output_file: 
+        output_file.write(f">{target_path.stem}\n")
+        output_file.write(target_alignment.consensus)
 
 if __name__ == "__main__":
     main()
