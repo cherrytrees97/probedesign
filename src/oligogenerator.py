@@ -1074,6 +1074,8 @@ class PrimerGenerator:
                 )
             )
         
+        primer_data.sort(key=lambda x: x[16], reverse=True)
+
         output_path = path.joinpath('primer_pairs.csv')
 
         #Output csv
