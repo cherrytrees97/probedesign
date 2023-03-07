@@ -19,13 +19,13 @@ TaqMan qPCR assays are designed in three steps:
 
 ## Pre-Requisites
 
-A conda environment .yml file is provided in this repo for easy setup. Otherwise, the scripts the following Python packages to be installed:
+A conda environment `.yml` file is provided in this repo for easy setup. Otherwise, the scripts the following Python packages to be installed:
  
-* biopython>=1.79
-* pandas>=1.4.2
-* primer3-py>=0.6.1
+* `biopython`>=1.79
+* `pandas`>=1.4.2
+* `primer3-py`>=0.6.1
 
-Additionally, BLAST+>=2.12 needs to be installed in your environment. 
+Additionally, `BLAST+`>=2.12 needs to be installed in your environment. 
 
 ## Preparing your alignment
 
@@ -39,29 +39,29 @@ ATCGATC....ATGACATG
 ATCGATC....ATGACATG
 ```
 
-Generally, we use [MAFFT](https://mafft.cbrc.jp/alignment/software/) with the --auto flag to prepare our alignments. 
+Generally, we use [MAFFT](https://mafft.cbrc.jp/alignment/software/) with the `--auto` flag to prepare our alignments. 
 
 ## Preparing a BLAST database for specificity checks
 
 If you want to check the specificity of your probes and primers, you will need to create a custom BLAST database containing the sequences that you want to check.
 
 Sequences for your BLAST database should be obtained from [NCBI Nucleotide](https://www.ncbi.nlm.nih.gov/nucleotide/) in GenBank flat file format. Refer to the Appendix for more information on generating an Entrez query. Once you have downloaded the Genbank file, you will need to run two helper scripts: 
-1. process_genbank_db.py: this script will output a FASTA file containing a sequence for each entry in the Genbank file, as well as parsing out relevant data into a metadata .csv file for easy reference. 
+1. `process_genbank_db.py`: this script will output a FASTA file containing a sequence for each entry in the Genbank file, as well as parsing out relevant data into a metadata `.csv` file for easy reference. 
 ```
 python ./process_genbank_db.py 
 ```
-2. generate_taxid_map.py: this script will output a .txt file in tab delimited format that links the NCBI IDs to the tax IDs. 
+2. `generate_taxid_map.py`: this script will output a `.txt` file in tab delimited format that links the NCBI IDs to the tax IDs. 
 ```
 python ./generate_taxid_map.py 
 ```
 
-After running both of these scripts, you can use the following command to generate the database, using the FASTA and .txt file as inputs:
+After running both of these scripts, you can use the following command to generate the database, using the FASTA and `.txt` file as inputs:
 
 ```
 makeblastdb -in $fasta.fasta -parse_seqids -taxid_map $taxid_map.txt -dbtype nucl
 ```
 
-Additionally, you will need to download the taxdb.tar.gz file provided by [NCBI](https://ftp.ncbi.nlm.nih.gov/blast/db/) in order for BLAST to recognize and convert tax IDs into species names. These files should be stored in the same directory as the database files. 
+Additionally, you will need to download the `taxdb.tar.gz` file provided by [NCBI](https://ftp.ncbi.nlm.nih.gov/blast/db/) in order for BLAST to recognize and convert tax IDs into species names. These files should be stored in the same directory as the database files. 
 
 ## Designing probes with probesearch.py
 Ensure that you have activated the correct conda environment prior to running probesearch.py, and that you have the following files: 
@@ -95,7 +95,7 @@ python ./probesearch.py \
     --max_tm 70
 ```
 
-To increase the speed that the BLAST jobs are performed, you can pass a value equal to the number of processes you want to spawn with the flag --mp_job. 
+To increase the speed that the BLAST jobs are performed, you can pass a value equal to the number of processes you want to spawn with the flag `--mp_job`. 
 
 ```
 #Spawn two processes when BLASTing probe sequences
@@ -103,11 +103,11 @@ python ./probesearch.py alignment_path --blastdb blastdb_path.fasta --mp_job 2
 ```
 
 probedesign.py will output several files: 
-1. probe_candidates.csv - contains the generated probes and their properties
-2. probe_blast/ - contains .csv files labeled by the probe root position and length that correspond to the BLAST results of that probe
-3. probesearch.log - log file for the program
+1. `probe_candidates.csv` - contains the generated probes and their properties
+2. `probe_blast/` - contains `.csv` files labeled by the probe root position and length that correspond to the BLAST results of that probe
+3. `probesearch.log` - log file for the program
 
-The probe that best fits your needs should be selected from the probe_candidates.csv file. Each probe has a predicted annealing temperature, and if enabled, a score between 0-2 that represents how sensitive and specific the probe is. The probe with the highest score and correct annealing temperature should be selected. 
+The probe that best fits your needs should be selected from the `probe_candidates.csv` file. Each probe has a predicted annealing temperature, and if enabled, a score between 0-2 that represents how sensitive and specific the probe is. The probe with the highest score and correct annealing temperature should be selected. 
 
 ## Designing primers using primersearch.py 
 Ensure that you have activated the correct conda environment prior to running probesearch.py, and that you have the following files: 
@@ -115,7 +115,7 @@ Ensure that you have activated the correct conda environment prior to running pr
 2. BLAST database (if checking specificity)
 3. taxdb files (if checking specificity)
 
-Additionally, probesearch.py should have been run and you should have selected a couple probes that you are interested in designing primers for. Note the putative probes' root positions and length. 
+Additionally, `probesearch.py` should have been run and you should have selected a couple probes that you are interested in designing primers for. Note the putative probes' root positions and length. 
 
 The program can be run with the following command (default settings) to find primers for the consensus sequence of the input alignment for the input probe parameters: 
 
@@ -148,19 +148,19 @@ python ./primersearch.py \
     --filter_min 0.6 \
 ```
 
-To increase the speed that the BLAST jobs are performed, you can pass a value equal to the number of processes you want to spawn with the flag --mp_job. 
+To increase the speed that the BLAST jobs are performed, you can pass a value equal to the number of processes you want to spawn with the flag `--mp_job`. 
 
 ```
 python ./primersearch.py alignment_path probe_root probe_len --blastdb blastdb_path.fasta --mp_job 2
 ```
 
 primerdesign.py will output several files: 
-1. primer_pairs.csv - contains the generated pairs and their properties
-2. fw_blast/ - contains .csv files labeled by the forward primer root position and length that correspond to the BLAST results of that primer
-3. rev_blast/ - contains .csv files labeled by the reverse primer root position and length that correspond to the BLAST results of that primer
-3. primersearch.log - log file for the program
+1. `primer_pairs.csv` - contains the generated pairs and their properties
+2. `fw_blast/` - contains `.csv` files labeled by the forward primer root position and length that correspond to the BLAST results of that primer
+3. `rev_blast/` - contains `.csv` files labeled by the reverse primer root position and length that correspond to the BLAST results of that primer
+3. `primersearch.log` - log file for the program
 
-The primer pair that best fits your needs should be selected from the probe_candidates.csv file. Primer pairs will have a predicted annealing temperature calculated using primer3 with default settings for each primer. There are individual scores for each primer, as well as a combined score for the primer pair, which takes into account only accessions that are found in the BLAST results of both primers. The optimal primer pair will have a predicted annealing temperature roughly 10 degrees less than the probe annealing temperature or around 60 C, and will have a high combined score. 
+The primer pair that best fits your needs should be selected from the `probe_candidates.csv` file. Primer pairs will have a predicted annealing temperature calculated using primer3 with default settings for each primer. There are individual scores for each primer, as well as a combined score for the primer pair, which takes into account only accessions that are found in the BLAST results of both primers. The optimal primer pair will have a predicted annealing temperature roughly 10 degrees less than the probe annealing temperature or around 60 C, and will have a high combined score. 
 
 ## Appendices
 ### Appendix I: Generating an Entrez Query
@@ -182,9 +182,9 @@ Probe parameters:
   --target_end target_end
                         End coordinate of target region, 1-based coordinates
   --min_probe_len MIN_PROBE_LEN
-                        Minimum primer length (default=17)
+                        Minimum probe length (default=17)
   --max_probe_len MAX_PROBE_LEN
-                        Maximum primer length (default=22)
+                        Maximum probe length (default=22)
 
 BLAST parameters:
   --no_sens_spec_check  Flag to not check the putative probes for their specificity and sensitivity
