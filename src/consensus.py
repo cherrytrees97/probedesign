@@ -112,7 +112,6 @@ class Alignment:
         self.alignment = AlignIO.read(alignment_path, 'fasta')
         self.sequences = self._get_sequences()
         self.sequence_regions = self._get_sequence_regions()
-        self.seq_position_data = self._get_sequence_position_data()
         self.consensus = None
 
     def __repr__(self): 
