@@ -12,12 +12,13 @@ This module can also be run as a script to generate a consensus sequence.
 import argparse
 import pathlib
 #Third-party libraries
-from Bio import AlignIO
+from Bio import AlignIO, SeqIO
 import numpy as np
 import pandas as pd
 
 def parse_args(): 
     parser = argparse.ArgumentParser(__doc__)
+
     parser.add_argument(
         "target_path",
         action='store', 
@@ -33,18 +34,40 @@ def parse_args():
         type=pathlib.Path,
         help='Path to directory that the consensus fasta will be output to. '
     )
+    parser.add_argument(
+        '--min_cons',
+        '-c',
+        action='store',
+        dest='min_cons',
+        type=float,
+        default=0.9,
+        help='Minimum percentage (decimal format) of identical bases for consensus base to be called (0.0-1.0). Default=0.9'
+    )
+    parser.add_argument(
+        '--min_rep',
+        '-r', 
+        action='store',
+        dest='min_rep',
+        type=float,
+        default=0.5,
+        help='Minimum percentage of sequences represented for consensus to be generated (0.0-1.0). Default=0.5',
+    )
+
     args = parser.parse_args()
+
     #Assign output path to the path of the input file if no output path
     #was specified. 
     if not args.output_path: 
         args.output_path = args.target_path.parent
+
     #Arg checker
     if not(
         args.output_path.exists()
         and args.target_path.exists()
     ):
         parser.error('Invalid paths.')
-    return (args.target_path, args.output_path)
+    
+    return args
 
 class Alignment: 
     """
@@ -89,7 +112,6 @@ class Alignment:
         self.alignment = AlignIO.read(alignment_path, 'fasta')
         self.sequences = self._get_sequences()
         self.sequence_regions = self._get_sequence_regions()
-        self.seq_position_data = self._get_sequence_position_data()
         self.consensus = None
 
     def __repr__(self): 
@@ -102,41 +124,64 @@ class Alignment:
             sequence_dict[sequence.id] = str(sequence.seq.ungap())
         return sequence_dict
 
-    def get_consensus(self, threshold: float=0.9) -> None: 
+    def get_consensus(self, min_con: float = 0.9, min_rep: float = 0.5) -> str:
         """
-        Get the consensus sequence of the alignment. 
-
-        Uses seq_position_data (dataframe representation) of the alignment to generate
-        the consensus sequence. 
-        TODO: Figure out what the algorithm is and describe it here. 
-
-        Parameters
-        ----------
-        threshold : float=0.9
-            Base consensus is only called if the most frequent basecall exceeds the
-            threshold percentage. 
-
-        Return
-        ------
-        consensus : str
-            Consensus sequence of the alignment.
+        Get the consensus sequence
         """
+        cons_sequence = []
+        num_sequence = len(self.alignment)
+        
+        #Determine sequence representation
+        sequence_regions = []
+        for sequence in self.alignment: 
+            start_base = sequence.seq.ungap()[0]
+            end_base = sequence.seq.ungap()[-1]
+            start_index = sequence.seq.find(start_base) #inclusive
+            end_index = sequence.seq.rfind(end_base)+1 #exclusive
+            sequence_regions.append((start_index, end_index))
+        
+        seq_rep = []
 
-        consensus=[]
+        for position in range(self.alignment.get_alignment_length()): 
+            seq_rep.append(0)
+            for region in sequence_regions:
+                if (position >= region[0]) and (position < region[1]): 
+                    seq_rep[position] = seq_rep[position] + 1
+        
+        seq_rep_ratio = [position/num_sequence for position in seq_rep]
 
-        #For each base position, assign highest frequency nucleotide
-        #as the consensus basecall if it exceeds the threshold.
-        #Otherwise, assign as 'N'
-        for base_position in self.seq_position_data.iterrows(): 
-            nucleotide_counts = base_position[1].value_counts(normalize=True)
-            if nucleotide_counts[0] >= threshold: 
-                consensus.append(nucleotide_counts.index[0])
+        #Determine which sequences pass the min_rep score
+        #Start with the left index
+        #Finish with the right index
+        left_index = 0
+        reverse_right_index = -1
+        while (seq_rep_ratio[left_index]) < min_rep: 
+            left_index = left_index + 1
+        while (seq_rep_ratio[reverse_right_index]) < min_rep: 
+            reverse_right_index = reverse_right_index - 1
+        right_index = self.alignment.get_alignment_length() + reverse_right_index + 1
+
+        #Determine the dominant base at each position
+        for position in range(left_index, right_index): 
+            bases = self.alignment[:,position].upper()
+            
+            num_bases = seq_rep[position]
+
+            counts = {
+                'A':bases.count('A'),
+                'C':bases.count('C'),
+                'T':bases.count('T'),
+                'G':bases.count('G'),
+            }
+            cons_base = max(counts, key=counts.get)
+            if (counts[cons_base]/num_bases) >= min_con: 
+                cons_sequence.append(cons_base)
             else: 
-                consensus.append("N")
-        consensus_sequence = ("".join(consensus).replace("-","")).upper()
-        self.consensus = consensus_sequence
+                cons_sequence.append('N')
 
-        return consensus_sequence
+        self.consensus = ''.join(cons_sequence)
+
+        #return self.consensus
 
     def _get_sequence_regions(self) -> dict: 
         """
@@ -171,51 +216,32 @@ class Alignment:
 
         return sequence_regions
 
-    def _get_sequence_position_data(self) -> pd.DataFrame:
-        """
-        Converts MultipleSeqAlignment object into a dataframe representation. 
-
-        The dataframe representation of the alignment is easier to use, especially when 
-        implementing the threshold calculation method of the consensus sequence. 
-
-        Parameters
-        ----------
-        None
-
-        Return
-        ------
-        self.seq_position_data : DataFrame
-
-        """
-        dict_series = dict()
-        for sequence in self.alignment: 
-            #Create the series containing all of the data
-            series = pd.Series(list(sequence.seq), index=range(len(sequence.seq)), name=sequence.id)
-            #Using sequence_regions, convert all non-sequence gap characters to NaN
-            sequence_region = self.sequence_regions[sequence.id]
-            #Start of the alignment to first base of sequence
-            #Base past end of sequence to end of alignment
-            series.iloc[0:sequence_region[0]] = np.NaN
-            series.iloc[sequence_region[1]:len(sequence.seq)] = np.NaN
-            dict_series[sequence.id] = series
-        seq_position_data = pd.DataFrame(dict_series)
-        return seq_position_data
-
-    def get_accessions(self) -> list: 
-        """Get the accessions for the sequences in the alignment. """
-        list_id = []
-        for seq in self.alignment: 
-            list_id.append(seq.id.split('.')[0])
-        return list_id
-
 def main():
-    target_path, output_path = parse_args()
-    target_alignment = Alignment(target_path)
-    target_alignment.get_consensus()
-    #Write consensus fasta
-    with open(output_path.joinpath(f'{target_path.stem}_consensus.fasta'), 'w') as output_file: 
-        output_file.write(f">{target_path.stem}\n")
-        output_file.write(target_alignment.consensus)
+    args = parse_args()
+
+    if args.target_path.is_file(): 
+        target_alignment = Alignment(args.target_path)
+        target_alignment.get_consensus(args.min_cons, args.min_rep)
+
+        #Write consensus fasta
+        consensus_fasta_path = args.output_path.joinpath(f'{args.target_path.stem}_consensus.fasta')
+        with open(consensus_fasta_path, 'w') as output_file: 
+            output_file.write(f">{args.target_path.stem}\n")
+            output_file.write(target_alignment.consensus)
+
+    elif args.target_path.is_dir(): 
+        for path in args.target_path.glob('*.fasta'): 
+            target_alignment = Alignment(path)
+            target_alignment.get_consensus(args.min_cons, args.min_rep)
+
+            #Write consensus fasta
+            consensus_fasta_path = args.output_path.joinpath(f'{path.stem}_consensus.fasta')
+            with open(consensus_fasta_path, 'w') as output_file: 
+                output_file.write(f">{path.stem}\n")
+                output_file.write(target_alignment.consensus)
+
+    else: 
+        print('Invalid target path provided.')
 
 if __name__ == "__main__":
     main()
