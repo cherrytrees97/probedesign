@@ -35,13 +35,13 @@ def parse_args():
         help='Path to directory that the consensus fasta will be output to. '
     )
     parser.add_argument(
-    '--min_cons',
-    '-c',
-    action='store',
-    dest='min_cons',
-    type=float,
-    default=0.9,
-    help='Minimum percentage (decimal format) of identical bases for consensus base to be called (0.0-1.0). Default=0.9'
+        '--min_cons',
+        '-c',
+        action='store',
+        dest='min_cons',
+        type=float,
+        default=0.9,
+        help='Minimum percentage (decimal format) of identical bases for consensus base to be called (0.0-1.0). Default=0.9'
     )
     parser.add_argument(
         '--min_rep',
@@ -221,7 +221,7 @@ def main():
 
     if args.target_path.is_file(): 
         target_alignment = Alignment(args.target_path)
-        target_alignment.get_consensus()
+        target_alignment.get_consensus(args.min_cons, args.min_rep)
 
         #Write consensus fasta
         consensus_fasta_path = args.output_path.joinpath(f'{args.target_path.stem}_consensus.fasta')
@@ -229,15 +229,15 @@ def main():
             output_file.write(f">{args.target_path.stem}\n")
             output_file.write(target_alignment.consensus)
 
-    if args.target_path.is_dir(): 
+    elif args.target_path.is_dir(): 
         for path in args.target_path.glob('*.fasta'): 
             target_alignment = Alignment(path)
-            target_alignment.get_consensus()
+            target_alignment.get_consensus(args.min_cons, args.min_rep)
 
             #Write consensus fasta
-            consensus_fasta_path = args.output_path.joinpath(f'{args.target_path.stem}_consensus.fasta')
+            consensus_fasta_path = args.output_path.joinpath(f'{path.stem}_consensus.fasta')
             with open(consensus_fasta_path, 'w') as output_file: 
-                output_file.write(f">{args.target_path.stem}\n")
+                output_file.write(f">{path.stem}\n")
                 output_file.write(target_alignment.consensus)
 
     else: 
