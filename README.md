@@ -141,8 +141,8 @@ python ./primersearch.py \
     probe_len \
     --blastdb blastdb_path.fasta \
     --filter_tm \
-    --max_primer_tm 55 \
-    --min_primer_tm 63 \
+    --min_primer_tm 55 \
+    --max_primer_tm 63 \
     --max_tm_diff 5 \
     --filter_seq_rep \
     --filter_min 0.6 \
